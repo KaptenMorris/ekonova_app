@@ -24,7 +24,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Define paths that should bypass the main admin shell (like the login page)
-  const publicAdminPaths = ['/admin-login']; // Adjusted path
+  const publicAdminPaths = ['/admin-login'];
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -35,7 +35,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
         setIsAuthenticated(false);
         // Only redirect if not on a public admin path
         if (!publicAdminPaths.includes(pathname)) {
-          router.replace('/admin-login'); // Adjusted path
+          router.replace('/admin-login');
         }
       }
       // Set document title based on current admin page
@@ -55,7 +55,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
       localStorage.removeItem('isAdminAuthenticated');
     }
     setIsAuthenticated(false);
-    router.replace('/admin-login'); // Adjusted path
+    router.replace('/admin-login');
   };
 
   if (isCheckingAuth) {
@@ -72,9 +72,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
 
   // If on a public admin path (like login) and not yet authenticated, or if auth check is done and not authenticated on a public path
   if (publicAdminPaths.includes(pathname)) {
-     // The login page will have its own simple layout, so this main layout passes through
-     // or you can provide a minimal wrapper if needed.
-     // For now, ThemeProvider might be good to ensure consistency.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         {children}
