@@ -49,7 +49,6 @@ export default function AdminLoginPage() {
         router.push('/admin-dashboard'); 
       } else {
         if (auth.currentUser) {
-            // If a non-admin user somehow logged in, log them out before showing error.
             await auth.signOut(); 
         }
         setError('Åtkomst nekad. Endast auktoriserade administratörer.');

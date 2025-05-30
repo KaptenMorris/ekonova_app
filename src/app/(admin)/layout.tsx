@@ -5,7 +5,7 @@ import type { ReactNode, FC } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState, useMemo } from 'react';
-import { LogOut, Shield, LayoutDashboard } from 'lucide-react';
+import { LogOut, LayoutDashboard } from 'lucide-react';
 import Logo from '@/components/shared/logo';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
       document.title = title;
     }
     setIsCheckingAuth(false);
-  }, [router, pathname, publicAdminPaths]); // Added publicAdminPaths to dependency array
+  }, [router, pathname, publicAdminPaths]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -78,8 +78,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    // This should ideally not be reached if routing in useEffect works correctly,
-    // but acts as a fallback during the brief period before useEffect's redirect.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen w-full items-center justify-center bg-background">
