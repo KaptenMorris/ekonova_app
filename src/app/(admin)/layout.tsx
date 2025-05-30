@@ -26,6 +26,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   const publicAdminPaths = ['/admin-login'];
 
   useEffect(() => {
+    let title = 'Admin - Ekonova';
     if (typeof window !== 'undefined') {
       const adminAuthStatus = localStorage.getItem('isAdminAuthenticated');
       if (adminAuthStatus === 'true') {
@@ -38,12 +39,11 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
       }
       
       if (pathname.includes('/admin-login')) {
-        document.title = 'Admin Login - Ekonova';
+        title = 'Admin Login - Ekonova';
       } else if (pathname.includes('/admin-dashboard')) {
-        document.title = 'Admin Dashboard - Ekonova';
-      } else {
-        document.title = 'Admin - Ekonova';
+        title = 'Admin Dashboard - Ekonova';
       }
+      document.title = title;
     }
     setIsCheckingAuth(false);
   }, [router, pathname]);
@@ -68,6 +68,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
+  // If on a public admin path (like admin-login), render children directly without the main admin layout
   if (publicAdminPaths.includes(pathname)) {
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
@@ -77,11 +78,8 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
+  // If not authenticated and not on a public path, show loading/redirect state
   if (!isAuthenticated) {
-    // This check is primarily for client-side routing.
-    // If directly navigating to a protected admin page while not authenticated,
-    // the useEffect above should handle the redirect before this renders.
-    // However, this provides an additional loading/redirect state.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -93,6 +91,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
+  // Render the main admin layout for authenticated users on protected admin pages
   return (
     <ThemeProvider
       attribute="class"
