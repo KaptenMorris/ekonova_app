@@ -9,19 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Send } from 'lucide-react';
-// Removed: import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-// Removed: import { db } from '@/lib/firebase';
-// Removed: import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-// Removed: import { AlertCircle, CheckCircle } from 'lucide-react';
-// Removed: import { useToast } from '@/hooks/use-toast';
-
 
 export default function SupportPage() {
   const { currentUser, loading: authLoading } = useAuth();
-  // Removed: const { toast } = useToast();
-  // Removed: const [isSubmitting, setIsSubmitting] = useState(false);
-  // Removed: const [formError, setFormError] = useState<string | null>(null);
-  // Removed: const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [inputEmail, setInputEmail] = useState('');
 
   useEffect(() => {
@@ -32,27 +22,45 @@ export default function SupportPage() {
     }
   }, [currentUser]);
 
-
   const handleOpenMailClient = () => {
     const emailTo = "info@marius-christensen.se";
-    const subject = "Supportärende från Ekonova";
-    let body = `Kontakta mig angående ett supportärende.`;
+    const subjectLine = "Återkoppling för Ekonova";
+
+    let emailBody = `Hej,
+
+Jag hoppas att detta meddelande når dig väl.
+
+Har du hittat en bugg? : 
+
+Har du synpunkter? : 
+
+Har du förslag på förbättringar för Ekonova? : 
+
+Uppskattar att du tar dig tid att hjälpa till att förbättra Ekonova :)
+`;
+
+    let userContactInfo = "";
     if (inputEmail) {
-      body += `\n\nMin e-postadress: ${inputEmail}`;
+      userContactInfo = inputEmail;
     } else if (currentUser?.email) {
-       body += `\n\nMin e-postadress: ${currentUser.email}`;
-    } else {
-       body += `\n\nVar vänlig ange din e-postadress i detta mail så vi kan svara dig.`
+      userContactInfo = currentUser.email;
     }
 
-    const mailtoLink = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (userContactInfo) {
+      emailBody += `\n\n--------------------\nAvsändare: ${userContactInfo}\n--------------------\n`;
+    } else {
+      emailBody += `\n\n--------------------\nAvsändare: [Vänligen fyll i din e-postadress här]\n--------------------\n`;
+    }
+    
+    emailBody += `\nMed vänliga hälsningar,\nMarius`;
+
+    const mailtoLink = `mailto:${emailTo}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(emailBody)}`;
     window.location.href = mailtoLink;
   };
   
   if (authLoading) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> Laddar...</div>;
   }
-
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -64,7 +72,6 @@ export default function SupportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Removed formSuccess and formError alerts */}
           <div className="space-y-6">
             <div>
               <Label htmlFor="email">Din E-post (för referens i mailet)</Label>
@@ -82,7 +89,7 @@ export default function SupportPage() {
                 }}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                {currentUser?.email ? "Detta är din registrerade e-postadress. Den kommer inkluderas i mailet." : "Ange din e-postadress så den kan inkluderas i mailet."}
+                {currentUser?.email ? "Detta är din registrerade e-postadress." : "Ange din e-postadress."}
               </p>
             </div>
             <Button onClick={handleOpenMailClient} className="w-full">
@@ -90,7 +97,7 @@ export default function SupportPage() {
               Skicka Ärende via E-post
             </Button>
           </div>
-          <p className="text-lg text-muted-foreground mt-6 text-center">
+          <p className="text-xl text-muted-foreground mt-6 text-center">
             För direktkontakt via e-post, använd <a href={`mailto:info@marius-christensen.se`} className="underline hover:text-primary">info@marius-christensen.se</a>.
           </p>
         </CardContent>
