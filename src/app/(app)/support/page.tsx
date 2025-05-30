@@ -34,14 +34,15 @@ export default function SupportPage() {
     }
   }, [currentUser]);
 
-  const resetForm = () => {
+  const resetFormAndState = () => {
     setSubject('');
     setMessage('');
-    if (!currentUser) {
-      setInputEmail('');
+    // Låt inputEmail vara kvar om användaren är inloggad eller just har fyllt i den
+    if (!currentUser && formSuccess) { // Rensa bara e-post om det var ett lyckat anrop och användaren inte är inloggad
+        // setInputEmail(''); // Behålls för nu
     }
     setFormError(null);
-    setFormSuccess(null);
+    setFormSuccess(null); // Detta är viktigt för att dölja framgångsmeddelandet och "skicka ett till"-knappen
     setIsSubmitting(false);
   };
 
@@ -61,6 +62,12 @@ export default function SupportPage() {
         setFormError("E-postadress måste anges.");
         return;
     }
+    // Enkel e-postvalidering
+    if (!currentUser && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToSend)) {
+        setFormError("Vänligen ange en giltig e-postadress.");
+        return;
+    }
+
 
     setIsSubmitting(true);
 
@@ -79,12 +86,10 @@ export default function SupportPage() {
         title: "Meddelande Skickat!",
         description: "Tack för ditt meddelande.",
       });
-      // Rensa fälten här, men låt inputEmail vara kvar om användaren är inloggad
-      setSubject('');
+      // Rensa inte allt direkt, låt resetFormAndState hantera det vid klick på "Skicka ett till"
+      setSubject(''); 
       setMessage('');
-      if (!currentUser) {
-        // setInputEmail(''); // Rensa inte e-post om det var det som skickades, ifall de vill skicka igen med samma
-      }
+      // Om användaren inte är inloggad, behåll e-posten ifall de vill skicka igen med samma
     } catch (error: any) {
       console.error("Error sending support ticket:", error);
       let detailedErrorMessage = "Kunde inte skicka ditt meddelande. Försök igen senare eller kontakta oss direkt via e-post.";
@@ -121,7 +126,7 @@ export default function SupportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {formError && (
+          {formError && !formSuccess && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Fel vid skickande</AlertTitle>
@@ -135,7 +140,7 @@ export default function SupportPage() {
                 <AlertTitle>Meddelande Skickat!</AlertTitle>
                 <ShadAlertDescription>{formSuccess}</ShadAlertDescription>
               </Alert>
-              <Button onClick={resetForm} className="w-full">
+              <Button onClick={resetFormAndState} className="w-full">
                 <MessageSquarePlus className="mr-2 h-4 w-4" /> Skicka ett till meddelande
               </Button>
             </div>
@@ -149,8 +154,8 @@ export default function SupportPage() {
                   type="email"
                   value={inputEmail}
                   placeholder="din.email@example.com"
-                  disabled={!!currentUser || isSubmitting} 
-                  readOnly={!!currentUser} 
+                  disabled={!!currentUser?.email || isSubmitting} 
+                  readOnly={!!currentUser?.email} 
                   required={!currentUser}
                   onChange={e => {
                     if (!currentUser) {
@@ -160,7 +165,7 @@ export default function SupportPage() {
                   }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  {currentUser ? "Detta är din registrerade e-postadress." : "Ange din e-postadress så vi kan kontakta dig."}
+                  {currentUser?.email ? "Detta är din registrerade e-postadress." : "Ange din e-postadress så vi kan kontakta dig."}
                 </p>
               </div>
               <div>
@@ -197,7 +202,7 @@ export default function SupportPage() {
             </form>
           )}
            <p className="text-xs text-muted-foreground mt-4 text-center">
-            Meddelanden sparas internt. För direktkontakt via e-post, använd <a href={`mailto:info@marius-christensen.se`} className="underline hover:text-primary">info@marius-christensen.se</a>.
+            Meddelanden sparas internt. För direktkontakt via e-post, använd <a href={`mailto:marius83christensen@gmail.com`} className="underline hover:text-primary">marius83christensen@gmail.com</a>.
           </p>
         </CardContent>
       </Card>
