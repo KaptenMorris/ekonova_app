@@ -26,6 +26,7 @@ export default function AdminLoginPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
         document.title = 'Admin Inloggning - Ekonova';
+        // Check if already authenticated and redirect
         if (localStorage.getItem('isAdminAuthenticated') === 'true') {
             router.replace('/admin-dashboard');
         }
@@ -48,6 +49,7 @@ export default function AdminLoginPage() {
         toast({ title: "Inloggning Lyckades", description: "Välkommen till adminportalen." });
         router.push('/admin-dashboard'); 
       } else {
+        // If user is authenticated but not admin, sign them out of this session
         if (auth.currentUser) {
             await auth.signOut();
         }
