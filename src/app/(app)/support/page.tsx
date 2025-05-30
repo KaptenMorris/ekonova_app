@@ -20,7 +20,7 @@ export default function SupportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const userEmail = currentUser?.email || '';
-  const supportEmailAddress = "info@marius-christensen.se"; // Uppdaterad e-postadress
+  const supportEmailAddress = "marius83christensen@gmail.com"; // Uppdaterad e-postadress
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
