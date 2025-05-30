@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Textarea is no longer needed for the message field
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Send, CheckCircle, AlertCircle, MessageSquarePlus } from 'lucide-react';
+import { Loader2, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
@@ -19,7 +18,6 @@ import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/c
 export default function SupportPage() {
   const { currentUser, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  // Removed subject and message state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -34,12 +32,11 @@ export default function SupportPage() {
   }, [currentUser]);
 
   const resetFormAndState = () => {
-    // Removed subject and message reset
     if (!currentUser && formSuccess) { 
       // inputEmail is intentionally kept if not logged in and form was successful
     }
     setFormError(null);
-    setFormSuccess(null); 
+    // setFormSuccess(null); // Keep success message visible
     setIsSubmitting(false);
   };
 
@@ -65,7 +62,6 @@ export default function SupportPage() {
       await addDoc(collection(db, "supportTickets"), {
         userEmail: emailToSend,
         userId: currentUser?.uid || null,
-        // subject and message are no longer sent
         status: "new",
         createdAt: serverTimestamp()
       });
@@ -108,7 +104,7 @@ export default function SupportPage() {
         <CardHeader>
           <CardTitle className="text-2xl md:text-3xl">Support & Felanmälan</CardTitle>
           <CardDescription>
-            Har du frågor, hittat en bugg, eller har du förslag på förbättringar? Skicka ett meddelande till oss!
+            Har du frågor, hittat en bugg, eller har du förslag på förbättringar? Skicka ett mail till oss!
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -126,9 +122,7 @@ export default function SupportPage() {
                 <AlertTitle>Ärende Skickat!</AlertTitle>
                 <ShadAlertDescription>{formSuccess}</ShadAlertDescription>
               </Alert>
-              <Button onClick={resetFormAndState} className="w-full">
-                <MessageSquarePlus className="mr-2 h-4 w-4" /> Starta ett nytt ärende
-              </Button>
+              {/* Button to start new ticket removed based on request */}
             </div>
           )}
           {!formSuccess && (
@@ -154,8 +148,6 @@ export default function SupportPage() {
                   {currentUser?.email ? "Detta är din registrerade e-postadress." : "Ange din e-postadress så vi kan kontakta dig."}
                 </p>
               </div>
-              {/* Subject field removed */}
-              {/* Message field removed */}
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -166,7 +158,7 @@ export default function SupportPage() {
               </Button>
             </form>
           )}
-           <p className="text-xs text-muted-foreground mt-4 text-center">
+           <p className="text-sm text-muted-foreground mt-4 text-center">
             För direktkontakt via e-post, använd <a href={`mailto:info@marius-christensen.se`} className="underline hover:text-primary">info@marius-christensen.se</a>.
           </p>
         </CardContent>
