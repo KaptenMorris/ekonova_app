@@ -26,7 +26,7 @@ export default function SupportPage() {
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   const userEmail = currentUser?.email || '';
-  const supportEmailAddress = "marius83christensen@gmail.com"; // Defaulted back
+  const supportEmailAddress = "marius83christensen@gmail.com"; 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -150,4 +150,3 @@ export default function SupportPage() {
     </div>
   );
 }
-
