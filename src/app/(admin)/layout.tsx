@@ -46,7 +46,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
       document.title = title;
     }
     setIsCheckingAuth(false);
-  }, [router, pathname, publicAdminPaths]);
+  }, [router, pathname, publicAdminPaths]); // Added publicAdminPaths to dependency array
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -78,11 +78,13 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
+    // This should ideally not be reached if routing in useEffect works correctly,
+    // but acts as a fallback during the brief period before useEffect's redirect.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen w-full items-center justify-center bg-background">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="ml-4">Omdirigerar...</p>
+          <p className="ml-4">Omdirigerar till inloggning...</p>
         </div>
         <Toaster />
       </ThemeProvider>
