@@ -27,7 +27,6 @@ export default function AdminDashboardPage() {
           </p>
         </CardContent>
       </Card>
-      {/* Future admin components can be added here */}
     </div>
   );
 }

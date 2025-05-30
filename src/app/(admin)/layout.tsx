@@ -4,7 +4,7 @@
 import type { ReactNode, FC } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { LogOut, Shield, LayoutDashboard } from 'lucide-react';
 import Logo from '@/components/shared/logo';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -23,7 +23,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const publicAdminPaths = ['/admin-login'];
+  const publicAdminPaths = useMemo(() => ['/admin-login'], []);
 
   useEffect(() => {
     let title = 'Admin - Ekonova';
@@ -46,7 +46,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
       document.title = title;
     }
     setIsCheckingAuth(false);
-  }, [router, pathname]);
+  }, [router, pathname, publicAdminPaths]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -78,8 +78,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    // This case should ideally be caught by the effect redirecting,
-    // but as a fallback, show a loader or minimal content.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -110,7 +108,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
                 <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
               </Button>
             </Link>
-            {/* Add other admin navigation items here if needed */}
           </nav>
           <Separator className="my-4" />
           <Button variant="ghost" onClick={handleLogout} className="w-full justify-start">
