@@ -78,6 +78,10 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
+    // This check is primarily for client-side routing.
+    // If directly navigating to a protected admin page while not authenticated,
+    // the useEffect above should handle the redirect before this renders.
+    // However, this provides an additional loading/redirect state.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -108,6 +112,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
                 <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
               </Button>
             </Link>
+            {/* Add more admin navigation links here if needed */}
           </nav>
           <Separator className="my-4" />
           <Button variant="ghost" onClick={handleLogout} className="w-full justify-start">
