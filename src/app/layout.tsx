@@ -30,7 +30,7 @@ export default function RootLayout({
   }, []);
 
   return (
-    <html lang="sv" suppressHydrationWarning> {/* Reverted lang to "sv" */}
+    <html lang="sv" suppressHydrationWarning>{/* Reverted lang to "sv" */}
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
