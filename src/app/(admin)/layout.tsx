@@ -18,6 +18,7 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
+  console.log("AdminLayout rendering/re-evaluating... (Cache Buster v5)"); // Cache buster
   const router = useRouter();
   const pathname = usePathname();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -31,6 +32,9 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
       const adminAuthStatus = localStorage.getItem('isAdminAuthenticated');
       if (adminAuthStatus === 'true') {
         setIsAuthenticated(true);
+        if (publicAdminPaths.includes(pathname)) {
+          router.replace('/admin-dashboard');
+        }
       } else {
         setIsAuthenticated(false);
         if (!publicAdminPaths.includes(pathname)) {
@@ -78,6 +82,8 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
+    // This case should ideally be handled by the redirect in useEffect,
+    // but as a fallback, show a loading state.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -108,6 +114,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
                 <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
               </Button>
             </Link>
+            {/* Add other admin navigation links here if needed */}
           </nav>
           <Separator className="my-4" />
           <Button variant="ghost" onClick={handleLogout} className="w-full justify-start">

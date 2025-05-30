@@ -13,7 +13,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
-const ADMIN_EMAIL = "admin@ekonova.se"; 
+const ADMIN_EMAIL = "admin@ekonova.se"; // Consider moving to .env
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -26,8 +26,9 @@ export default function AdminLoginPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
         document.title = 'Admin Inloggning - Ekonova';
+        // Check if already authenticated and redirect
         if (localStorage.getItem('isAdminAuthenticated') === 'true') {
-            router.replace('/admin-dashboard'); 
+            router.replace('/admin-dashboard'); // Use replace to avoid back button issues
         }
     }
   }, [router]);
@@ -42,14 +43,17 @@ export default function AdminLoginPage() {
       const user = userCredential.user;
 
       if (user && user.email === ADMIN_EMAIL) {
+        // IMPORTANT: This is a placeholder for actual admin role verification.
+        // In a real app, check a Firestore custom claim or a role in the database.
         if (typeof window !== 'undefined') {
           localStorage.setItem('isAdminAuthenticated', 'true');
         }
         toast({ title: "Inloggning Lyckades", description: "Välkommen till adminportalen." });
-        router.push('/admin-dashboard'); 
+        router.push('/admin-dashboard'); // Use push after successful login
       } else {
+        // If the user logged in but is not the admin, sign them out.
         if (auth.currentUser) {
-            await auth.signOut(); 
+            await auth.signOut(); // Ensure non-admin users are signed out
         }
         setError('Åtkomst nekad. Endast auktoriserade administratörer.');
         toast({ title: "Inloggning Misslyckades", description: "Åtkomst nekad.", variant: "destructive" });
