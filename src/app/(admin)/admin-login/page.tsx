@@ -8,12 +8,12 @@ import { Label } from '@/components/ui/label';
 import { useState, FormEvent, useEffect } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Alert, AlertDescription as ShadAlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription as ShadAlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert"; // Renamed to avoid conflict
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
-const ADMIN_EMAIL = "admin@ekonova.se";
+const ADMIN_EMAIL = "admin@ekonova.se"; // Consider moving to .env or a config file
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -24,11 +24,12 @@ export default function AdminLoginPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    // This effect now runs only on client-side
     if (typeof window !== 'undefined') {
         document.title = 'Admin Inloggning - Ekonova';
         // Check if already authenticated and redirect
         if (localStorage.getItem('isAdminAuthenticated') === 'true') {
-            router.replace('/admin-dashboard');
+            router.replace('/admin-dashboard'); // Use replace to avoid login page in history
         }
     }
   }, [router]);
@@ -43,21 +44,25 @@ export default function AdminLoginPage() {
       const user = userCredential.user;
 
       if (user && user.email === ADMIN_EMAIL) {
+        // IMPORTANT: localStorage is client-side only
         if (typeof window !== 'undefined') {
           localStorage.setItem('isAdminAuthenticated', 'true');
         }
         toast({ title: "Inloggning Lyckades", description: "Välkommen till adminportalen." });
-        router.push('/admin-dashboard'); 
+        router.push('/admin-dashboard'); // Use push for successful login
       } else {
-        // If user is authenticated but not admin, sign them out of this session
+        // If not the admin email, sign out the authenticated user (if any)
+        // This prevents non-admin users from being "logged in" to Firebase auth
+        // while still being denied access to the admin portal.
         if (auth.currentUser) {
-            await auth.signOut();
+            await auth.signOut(); // Sign out the non-admin user
         }
         setError('Åtkomst nekad. Endast auktoriserade administratörer.');
         toast({ title: "Inloggning Misslyckades", description: "Åtkomst nekad.", variant: "destructive" });
       }
     } catch (err: any) {
       console.error("Admin login error:", err);
+      // More specific error handling based on Firebase error codes
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-disabled' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-email') {
         setError('Felaktig e-postadress eller lösenord.');
       } else if (err.code === 'auth/too-many-requests') {
