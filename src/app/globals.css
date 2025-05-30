@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Removed: body { font-family: Arial, Helvetica, sans-serif; } */
+
+@layer base {
+  :root {
+    --background: 167 56% 92%; /* Light Desaturated Teal #E0F4F1 */
+    --foreground: 137 15% 25%; /* Darker, less saturated teal for text */
+
+    --card: 167 56% 95%; /* Slightly lighter than background */
+    --card-foreground: 137 15% 25%;
+
+    --popover: 167 56% 95%;
+    --popover-foreground: 137 15% 25%;
+
+    --primary: 137 20% 55%; /* Soft Teal #73A580 */
+    --primary-foreground: 137 20% 95%; /* Very light for on-primary text */
+
+    --secondary: 167 30% 85%; /* Lighter shade of teal for secondary elements */
+    --secondary-foreground: 137 15% 35%; /* Darker teal for contrast on secondary */
+
+    --muted: 167 30% 89%;
+    --muted-foreground: 167 20% 50%; /* Adjusted for better visibility */
+
+    --accent: 102 51% 69%; /* Pale Green #9FD887 */
+    --accent-foreground: 102 51% 20%; /* Dark green for on-accent text */
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 167 20% 80%;
+    --input: 167 20% 88%; /* Slightly different from border for inputs */
+    --ring: 137 20% 55%; /* Primary color for focus rings */
+
+    --radius: 0.5rem;
+
+    /* Chart colors (can be adjusted to fit the theme) */
+    --chart-1: 137 20% 55%; /* Primary */
+    --chart-2: 102 51% 69%; /* Accent */
+    --chart-3: 167 30% 70%; 
+    --chart-4: 137 20% 75%;
+    --chart-5: 102 51% 80%;
+
+    /* Sidebar specific colors */
+    --sidebar-background: 167 50% 89%;
+    --sidebar-foreground: 137 15% 20%;
+    --sidebar-border: 167 20% 75%;
+    --sidebar-accent: 180 80% 35%; /* New: RGB(18, 161, 161) */
+    --sidebar-accent-foreground: 180 25% 95%; /* New: Light contrasting text */
+    --sidebar-primary: 137 20% 55%;
+    --sidebar-primary-foreground: 137 20% 95%;
+    --sidebar-ring: 137 20% 55%;
+  }
+
+  .dark {
+    --background: 190 15% 10%; /* Dark cool blue/teal */
+    --foreground: 167 40% 85%; /* Lighter teal for text */
+
+    --card: 190 15% 15%; /* Slightly lighter than dark background */
+    --card-foreground: 167 40% 85%;
+
+    --popover: 190 15% 15%;
+    --popover-foreground: 167 40% 85%;
+
+    --primary: 137 25% 60%; /* Slightly brighter primary */
+    --primary-foreground: 137 25% 15%; /* Dark for on-primary */
+
+    --secondary: 190 15% 25%;
+    --secondary-foreground: 167 30% 75%;
+
+    --muted: 190 15% 20%;
+    --muted-foreground: 167 25% 60%;
+
+    --accent: 102 45% 65%; /* Slightly adjusted accent */
+    --accent-foreground: 102 45% 15%; /* Dark for on-accent */
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 190 10% 30%;
+    --input: 190 10% 25%;
+    --ring: 137 25% 60%;
+
+    /* Chart colors for dark mode */
+    --chart-1: 137 25% 60%; /* Primary */
+    --chart-2: 102 45% 65%; /* Accent */
+    --chart-3: 190 15% 50%;
+    --chart-4: 137 25% 45%;
+    --chart-5: 102 45% 50%;
+    
+    /* Sidebar specific colors for dark mode */
+    --sidebar-background: 190 15% 8%;
+    --sidebar-foreground: 167 40% 90%;
+    --sidebar-border: 190 10% 25%;
+    --sidebar-accent: 180 80% 35%; /* New: RGB(18, 161, 161) */
+    --sidebar-accent-foreground: 180 25% 95%; /* New: Light contrasting text */
+    --sidebar-primary: 137 25% 60%;
+    --sidebar-primary-foreground: 137 25% 15%;
+    --sidebar-ring: 137 25% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
