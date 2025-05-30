@@ -20,6 +20,7 @@ import {
   HelpCircle,
   LifeBuoy,
   Bot,
+  ShieldCheck, // For Admin link
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -36,12 +37,10 @@ import {
 } from '@/components/ui/sidebar';
 import Logo from '@/components/shared/logo';
 import { ThemeToggle } from '@/components/shared/theme-toggle';
-// Removed: import LanguageSwitcher from '@/components/shared/LanguageSwitcher';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-// Removed: import { useTranslation } from '@/hooks/useTranslation';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -49,8 +48,9 @@ interface AppLayoutProps {
 
 interface NavItem {
   href: string;
-  label: string; // Changed from i18nKey
+  label: string;
   icon: React.ElementType;
+  adminOnly?: boolean; // New property
 }
 
 const staticNavItems: NavItem[] = [
@@ -63,6 +63,7 @@ const staticNavItems: NavItem[] = [
   { href: '/hjalp', label: 'Hjälp', icon: HelpCircle },
   { href: '/support', label: 'Support', icon: LifeBuoy },
   { href: '/kontoinstallningar', label: 'Kontoinställningar', icon: Settings },
+  { href: '/admin/dashboard', label: 'Admin', icon: ShieldCheck, adminOnly: true }, // Added Admin link
 ];
 
 
@@ -71,18 +72,17 @@ const AppLayoutInner: FC<{
   logOut: () => void;
   pathname: string;
   children: ReactNode;
-}> = ({ currentUser, logOut, pathname, children }) => {
+  isAdmin: boolean | null; // Added isAdmin prop
+}> = ({ currentUser, logOut, pathname, children, isAdmin }) => {
   const { isMobile, setOpenMobile } = useSidebar();
-  // Removed: const { t } = useTranslation();
 
   const userDisplayName = currentUser.displayName || currentUser.email || 'Användare';
   const userEmail = currentUser.email || 'Ingen e-post';
   const userAvatarFallback = (userDisplayName.split(' ').map(n => n[0]).join('') || userEmail[0] || 'A').toUpperCase();
 
-  // Reverted navItems to use hardcoded labels
-  const navItems = useMemo(() => staticNavItems.map(item => ({
-    ...item,
-  })), []);
+  const navItems = useMemo(() => 
+    staticNavItems.filter(item => !item.adminOnly || (item.adminOnly && isAdmin === true))
+  , [isAdmin]);
 
   const currentPage = navItems.find(item => pathname.startsWith(item.href));
   const pageTitle = currentPage ? currentPage.label : 'Ekonova';
@@ -139,7 +139,6 @@ const AppLayoutInner: FC<{
           <Separator className="my-2 bg-sidebar-border" />
            <div className="flex items-center justify-between mt-2">
             <ThemeToggle />
-            {/* Removed: <LanguageSwitcher /> */}
           </div>
            <Button
               variant="ghost"
@@ -174,8 +173,7 @@ const AppLayoutInner: FC<{
 const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, loading, logOut } = useAuth();
-  // Removed: const { t } = useTranslation();
+  const { currentUser, loading, logOut, isAdmin } = useAuth(); // Added isAdmin
 
   useEffect(() => {
     if (!loading && !currentUser) {
@@ -185,7 +183,7 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      document.title = 'Ekonova'; // Reverted to static title
+      document.title = 'Ekonova';
     }
   }, []);
 
@@ -204,6 +202,7 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
         currentUser={currentUser}
         logOut={logOut}
         pathname={pathname}
+        isAdmin={isAdmin} // Pass isAdmin
       >
         {children}
       </AppLayoutInner>

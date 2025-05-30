@@ -11,7 +11,6 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription as ShadAlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
-// Removed: import { useTranslation } from '@/hooks/useTranslation';
 
 export default function RegisterPage() {
   const [name, setName] = useState(''); 
@@ -22,7 +21,6 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const { signUp, currentUser } = useAuth();
   const router = useRouter();
-  // Removed: const { t } = useTranslation();
 
   useEffect(() => {
     if (currentUser) {
@@ -36,11 +34,17 @@ export default function RegisterPage() {
       setError("Lösenorden matchar inte.");
       return;
     }
+    if (!name.trim()) {
+      setError("Namn måste anges.");
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      await signUp(email, password);
-      router.push('/dashboard'); 
+      await signUp(email, password, name); // Pass name to signUp
+      // User will be redirected by onAuthStateChanged or fetchUserData in AuthContext
+      // which now also creates the Firestore document.
+      // router.push('/dashboard'); // This might be premature if Firestore doc creation is async
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError("E-postadressen används redan av ett annat konto.");
@@ -60,7 +64,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      document.title = 'Skapa konto - Ekonova'; // Reverted
+      document.title = 'Skapa konto - Ekonova';
     }
   }, []);
 
