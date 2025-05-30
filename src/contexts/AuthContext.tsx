@@ -54,7 +54,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [subscription, setSubscription] = React.useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = React.useState<string | null>(null); // Added mainBoardId state
   const [boardOrder, setBoardOrder] = React.useState<string[] | null>(null); // Added boardOrder state
+  const [hasMounted, setHasMounted] = React.useState(false); // New state for hydration fix
   const router = useRouter();
+
+  useEffect(() => {
+    setHasMounted(true); // Will only run on the client after initial render
+  }, []);
 
   const fetchUserData = useCallback(async (user: User | null) => {
     if (user) {
@@ -86,31 +91,30 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, []); 
+  }, []);
 
   useEffect(() => {
+    if (!hasMounted) { // Don't run Firebase logic until client has mounted
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
-        setSubscription(null); 
+        setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
       }
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData]); 
+  }, [fetchUserData, hasMounted]); // Depend on hasMounted
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
-      setLoading(true); // Keep loading true while refreshing
+      setLoading(true);
       await fetchUserData(currentUser);
-      // currentUser object itself might need to be reloaded if Firebase Auth profile changed
-      // but for Firestore data like subscription/mainBoardId, fetchUserData is enough.
-      // To ensure components react to currentUser changes if only sub-properties changed:
-      // setCurrentUser(prevUser => prevUser ? ({ ...prevUser }) : null); // This can cause infinite loops if not careful
       setLoading(false);
     }
   }, [currentUser, fetchUserData]);
@@ -132,7 +136,18 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  if (loading && !currentUser) { 
+  // Conditional rendering logic updated
+  if (!hasMounted) {
+    // On the server, and on the client before the first useEffect for hasMounted runs
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (loading && !currentUser) {
+    // After client has mounted, but Firebase auth is still loading and no user is yet available
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -144,8 +159,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     currentUser,
     loading,
     subscription,
-    mainBoardId, // Provide mainBoardId
-    boardOrder, // Provide boardOrder
+    mainBoardId,
+    boardOrder,
     signUp,
     logIn,
     logOut,
