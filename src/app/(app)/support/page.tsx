@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+// Textarea is no longer needed for the message field
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Send, CheckCircle, AlertCircle, MessageSquarePlus } from 'lucide-react';
@@ -19,8 +19,7 @@ import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/c
 export default function SupportPage() {
   const { currentUser, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
+  // Removed subject and message state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -35,14 +34,12 @@ export default function SupportPage() {
   }, [currentUser]);
 
   const resetFormAndState = () => {
-    setSubject('');
-    setMessage('');
-    // Låt inputEmail vara kvar om användaren är inloggad eller just har fyllt i den
-    if (!currentUser && formSuccess) { // Rensa bara e-post om det var ett lyckat anrop och användaren inte är inloggad
-        // setInputEmail(''); // Behålls för nu
+    // Removed subject and message reset
+    if (!currentUser && formSuccess) { 
+      // inputEmail is intentionally kept if not logged in and form was successful
     }
     setFormError(null);
-    setFormSuccess(null); // Detta är viktigt för att dölja framgångsmeddelandet och "skicka ett till"-knappen
+    setFormSuccess(null); 
     setIsSubmitting(false);
   };
 
@@ -51,23 +48,16 @@ export default function SupportPage() {
     setFormError(null);
     setFormSuccess(null);
 
-    if (!subject.trim() || !message.trim()) {
-      setFormError("Vänligen fyll i både ämne och meddelande.");
-      return;
-    }
-
     const emailToSend = currentUser ? (currentUser.email || '') : inputEmail.trim();
 
     if (!emailToSend) {
         setFormError("E-postadress måste anges.");
         return;
     }
-    // Enkel e-postvalidering
     if (!currentUser && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToSend)) {
         setFormError("Vänligen ange en giltig e-postadress.");
         return;
     }
-
 
     setIsSubmitting(true);
 
@@ -75,24 +65,20 @@ export default function SupportPage() {
       await addDoc(collection(db, "supportTickets"), {
         userEmail: emailToSend,
         userId: currentUser?.uid || null,
-        subject: subject,
-        message: message,
+        // subject and message are no longer sent
         status: "new",
         createdAt: serverTimestamp()
       });
 
-      setFormSuccess("Ditt meddelande har skickats till supporten! Vi återkommer så snart som möjligt.");
+      setFormSuccess("Ditt ärende har skickats till supporten! Vi återkommer så snart som möjligt via den angivna e-postadressen.");
       toast({
-        title: "Meddelande Skickat!",
+        title: "Ärende Skickat!",
         description: "Tack för ditt meddelande.",
       });
-      // Rensa inte allt direkt, låt resetFormAndState hantera det vid klick på "Skicka ett till"
-      setSubject(''); 
-      setMessage('');
-      // Om användaren inte är inloggad, behåll e-posten ifall de vill skicka igen med samma
+      // Do not reset inputEmail if user is not logged in, they might want to send another with same email
     } catch (error: any) {
       console.error("Error sending support ticket:", error);
-      let detailedErrorMessage = "Kunde inte skicka ditt meddelande. Försök igen senare eller kontakta oss direkt via e-post.";
+      let detailedErrorMessage = "Kunde inte skicka ditt ärende. Försök igen senare eller kontakta oss direkt via e-post.";
       if (error.code) {
         detailedErrorMessage += ` (Felkod: ${error.code})`;
       }
@@ -137,11 +123,11 @@ export default function SupportPage() {
             <div className="mb-4 space-y-4">
               <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700 [&>svg]:text-green-600 dark:[&>svg]:text-green-500">
                 <CheckCircle className="h-4 w-4" />
-                <AlertTitle>Meddelande Skickat!</AlertTitle>
+                <AlertTitle>Ärende Skickat!</AlertTitle>
                 <ShadAlertDescription>{formSuccess}</ShadAlertDescription>
               </Alert>
               <Button onClick={resetFormAndState} className="w-full">
-                <MessageSquarePlus className="mr-2 h-4 w-4" /> Skicka ett till meddelande
+                <MessageSquarePlus className="mr-2 h-4 w-4" /> Starta ett nytt ärende
               </Button>
             </div>
           )}
@@ -168,44 +154,24 @@ export default function SupportPage() {
                   {currentUser?.email ? "Detta är din registrerade e-postadress." : "Ange din e-postadress så vi kan kontakta dig."}
                 </p>
               </div>
-              <div>
-                <Label htmlFor="subject">Ämne</Label>
-                <Input
-                  id="subject"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Kort beskrivning av ditt ärende"
-                  required
-                  disabled={isSubmitting}
-                />
-              </div>
-              <div>
-                <Label htmlFor="message">Meddelande</Label>
-                <Textarea
-                  id="message"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Beskriv ditt ärende, din fråga eller bugg så detaljerat som möjligt."
-                  rows={6}
-                  required
-                  disabled={isSubmitting}
-                />
-              </div>
+              {/* Subject field removed */}
+              {/* Message field removed */}
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
                 )}
-                Skicka Meddelande
+                Skicka Ärende
               </Button>
             </form>
           )}
            <p className="text-xs text-muted-foreground mt-4 text-center">
-            Meddelanden sparas internt. För direktkontakt via e-post, använd <a href={`mailto:marius83christensen@gmail.com`} className="underline hover:text-primary">marius83christensen@gmail.com</a>.
+            För direktkontakt via e-post, använd <a href={`mailto:info@marius-christensen.se`} className="underline hover:text-primary">info@marius-christensen.se</a>.
           </p>
         </CardContent>
       </Card>
     </div>
   );
 }
+
