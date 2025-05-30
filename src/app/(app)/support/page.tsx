@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Send, CheckCircle, AlertCircle } from 'lucide-react';
-// Removed: import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-// Removed: import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 
 
@@ -21,12 +21,12 @@ export default function SupportPage() {
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false); // Kept for mailto: link feedback if desired
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   const userEmail = currentUser?.email || '';
-  const supportEmailAddress = "marius83christensen@gmail.com"; 
+  // const supportEmailAddress = "marius83christensen@gmail.com"; // No longer directly used for mailto
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,30 +38,41 @@ export default function SupportPage() {
       return;
     }
 
-    setIsSubmitting(true); // Indicate action
-
-    // Construct mailto link
-    const mailtoSubject = encodeURIComponent(subject);
-    const mailtoBody = encodeURIComponent(
-      `Användarens e-post: ${userEmail || 'Inte angiven (inte inloggad)'}\n\nMeddelande:\n${message}`
-    );
-    const mailtoLink = `mailto:${supportEmailAddress}?subject=${mailtoSubject}&body=${mailtoBody}`;
-
-    // Open mail client
-    if (typeof window !== "undefined") {
-        window.location.href = mailtoLink;
+    if (!currentUser && !userEmail.trim()) {
+        setFormError("E-postadress måste anges om du inte är inloggad.");
+        return;
     }
 
+    setIsSubmitting(true);
 
-    // Simulate success as we can't confirm actual send via mailto
-    setFormSuccess("Ditt e-postprogram bör nu ha öppnats med ett förifyllt meddelande. Vänligen skicka det därifrån.");
-    toast({
-      title: "Öppnar E-postprogram",
-      description: "Förbered ditt meddelande för att skickas till supporten.",
-    });
-    setSubject('');
-    setMessage('');
-    setIsSubmitting(false);
+    try {
+      await addDoc(collection(db, "supportTickets"), {
+        userEmail: userEmail,
+        userId: currentUser?.uid || null,
+        subject: subject,
+        message: message,
+        status: "new",
+        createdAt: serverTimestamp()
+      });
+
+      setFormSuccess("Ditt meddelande har skickats till supporten! Vi återkommer så snart som möjligt.");
+      toast({
+        title: "Meddelande Skickat!",
+        description: "Tack för ditt meddelande.",
+      });
+      setSubject('');
+      setMessage('');
+    } catch (error) {
+      console.error("Error sending support ticket:", error);
+      setFormError("Kunde inte skicka ditt meddelande. Försök igen senare eller kontakta oss direkt via e-post.");
+      toast({
+        title: "Fel",
+        description: "Kunde inte skicka meddelandet.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   if (authLoading) {
@@ -89,7 +100,7 @@ export default function SupportPage() {
           {formSuccess && (
             <Alert variant="default" className="mb-4 border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700 [&>svg]:text-green-600 dark:[&>svg]:text-green-500">
               <CheckCircle className="h-4 w-4" />
-              <AlertTitle>Meddelande Förberett!</AlertTitle>
+              <AlertTitle>Meddelande Skickat!</AlertTitle>
               <ShadAlertDescription>{formSuccess}</ShadAlertDescription>
             </Alert>
           )}
@@ -102,10 +113,10 @@ export default function SupportPage() {
                   type="email"
                   value={userEmail}
                   placeholder="din.email@example.com"
-                  disabled // E-post från inloggad användare, kan inte ändras här om currentUser finns
-                  readOnly={!!currentUser} // Make it truly readonly if user is logged in
-                  required={!currentUser} // Required if not logged in
-                  onChange={e => !currentUser && setFormError(null) /* Basic handling for non-logged in users if email was editable */}
+                  disabled={!!currentUser} 
+                  readOnly={!!currentUser} 
+                  required={!currentUser}
+                  onChange={e => !currentUser && setFormError(null)} 
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   {currentUser ? "Detta är din registrerade e-postadress." : "Ange din e-postadress så vi kan kontakta dig."}
@@ -143,7 +154,7 @@ export default function SupportPage() {
             </form>
           )}
            <p className="text-xs text-muted-foreground mt-4 text-center">
-            Vid akuta problem eller om formuläret inte fungerar, kan du också kontakta oss direkt på <a href={`mailto:${supportEmailAddress}`} className="underline hover:text-primary">{supportEmailAddress}</a>.
+            Meddelanden sparas internt. För direktkontakt via e-post, använd <a href={`mailto:marius83christensen@gmail.com`} className="underline hover:text-primary">marius83christensen@gmail.com</a>.
           </p>
         </CardContent>
       </Card>
