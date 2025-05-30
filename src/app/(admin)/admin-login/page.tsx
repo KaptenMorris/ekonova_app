@@ -48,6 +48,7 @@ export default function AdminLoginPage() {
         toast({ title: "Inloggning Lyckades", description: "Välkommen till adminportalen." });
         router.push('/admin-dashboard'); 
       } else {
+        // If the user is authenticated but not the admin, sign them out.
         if (auth.currentUser) {
             await auth.signOut(); 
         }
