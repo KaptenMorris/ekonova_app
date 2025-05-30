@@ -23,7 +23,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Define paths that should bypass the main admin shell (like the login page)
   const publicAdminPaths = ['/admin-login'];
 
   useEffect(() => {
@@ -33,12 +32,11 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
-        // Only redirect if not on a public admin path
         if (!publicAdminPaths.includes(pathname)) {
           router.replace('/admin-login');
         }
       }
-      // Set document title based on current admin page
+      
       if (pathname.includes('/admin-login')) {
         document.title = 'Admin Login - Ekonova';
       } else if (pathname.includes('/admin-dashboard')) {
@@ -70,7 +68,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
-  // If on a public admin path (like login) and not yet authenticated, or if auth check is done and not authenticated on a public path
   if (publicAdminPaths.includes(pathname)) {
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
@@ -80,7 +77,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
-  // If not authenticated and not on a public admin path, show loader or redirect (useEffect handles redirect)
   if (!isAuthenticated) {
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -93,7 +89,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
-  // Authenticated: Render the main admin shell
   return (
     <ThemeProvider
       attribute="class"
@@ -113,7 +108,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
                 <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
               </Button>
             </Link>
-            {/* Add more admin navigation links here as needed */}
           </nav>
           <Separator className="my-4" />
           <Button variant="ghost" onClick={handleLogout} className="w-full justify-start">
