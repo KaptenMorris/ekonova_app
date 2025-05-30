@@ -2,7 +2,7 @@
 // src/app/(app)/support/page.tsx
 "use client";
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,9 +24,15 @@ export default function SupportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [inputEmail, setInputEmail] = useState('');
 
-  const userEmail = currentUser?.email || '';
-  // const supportEmailAddress = "info@marius-christensen.se"; // No longer directly used for mailto
+  useEffect(() => {
+    if (currentUser) {
+      setInputEmail(currentUser.email || '');
+    } else {
+      setInputEmail('');
+    }
+  }, [currentUser]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,8 +44,10 @@ export default function SupportPage() {
       return;
     }
 
-    if (!currentUser && !userEmail.trim()) {
-        setFormError("E-postadress måste anges om du inte är inloggad.");
+    const emailToSend = currentUser ? (currentUser.email || '') : inputEmail.trim();
+
+    if (!emailToSend) {
+        setFormError("E-postadress måste anges.");
         return;
     }
 
@@ -47,7 +55,7 @@ export default function SupportPage() {
 
     try {
       await addDoc(collection(db, "supportTickets"), {
-        userEmail: userEmail,
+        userEmail: emailToSend,
         userId: currentUser?.uid || null,
         subject: subject,
         message: message,
@@ -62,13 +70,25 @@ export default function SupportPage() {
       });
       setSubject('');
       setMessage('');
-    } catch (error) {
+      if (!currentUser) {
+        setInputEmail('');
+      }
+    } catch (error: any) {
       console.error("Error sending support ticket:", error);
-      setFormError("Kunde inte skicka ditt meddelande. Försök igen senare eller kontakta oss direkt via e-post.");
+      let detailedErrorMessage = "Kunde inte skicka ditt meddelande. Försök igen senare eller kontakta oss direkt via e-post.";
+      if (error.code) {
+        detailedErrorMessage += ` (Felkod: ${error.code})`;
+      }
+      // Undvik att logga hela error.message i consolen om det är ett vanligt permission-denied, då koden redan visas.
+      if (error.message && error.code !== 'permission-denied' && error.code !== 'PERMISSION_DENIED') {
+        console.error("Firebase error message details:", error.message);
+      }
+      setFormError(detailedErrorMessage);
       toast({
-        title: "Fel",
-        description: "Kunde inte skicka meddelandet.",
+        title: "Fel vid skickande",
+        description: detailedErrorMessage,
         variant: "destructive",
+        duration: 10000, // Längre tid för att hinna se felkoden
       });
     } finally {
       setIsSubmitting(false);
@@ -111,12 +131,17 @@ export default function SupportPage() {
                 <Input
                   id="email"
                   type="email"
-                  value={userEmail}
+                  value={inputEmail}
                   placeholder="din.email@example.com"
                   disabled={!!currentUser} 
                   readOnly={!!currentUser} 
                   required={!currentUser}
-                  onChange={e => !currentUser && setFormError(null)} 
+                  onChange={e => {
+                    if (!currentUser) {
+                      setInputEmail(e.target.value);
+                    }
+                    if (formError) setFormError(null); // Rensa felmeddelande vid ändring
+                  }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   {currentUser ? "Detta är din registrerade e-postadress." : "Ange din e-postadress så vi kan kontakta dig."}
@@ -161,4 +186,3 @@ export default function SupportPage() {
     </div>
   );
 }
-
