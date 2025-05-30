@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Send, CheckCircle, AlertCircle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// Removed: import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+// Removed: import { db } from '@/lib/firebase';
 import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 
 
@@ -21,12 +21,12 @@ export default function SupportPage() {
   const { toast } = useToast();
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Kept for mailto: link feedback if desired
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   const userEmail = currentUser?.email || '';
-
+  const supportEmailAddress = "marius83christensen@gmail.com"; // Defaulted back
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,40 +38,30 @@ export default function SupportPage() {
       return;
     }
 
-    setIsSubmitting(true);
+    setIsSubmitting(true); // Indicate action
 
-    try {
-      const supportTicketsRef = collection(db, 'supportTickets');
-      await addDoc(supportTicketsRef, {
-        userId: currentUser?.uid || null,
-        userName: currentUser?.displayName || null,
-        userEmail: userEmail, // Use the email from auth context, or allow user to input if not logged in
-        subject: subject,
-        message: message,
-        status: 'new', // Initial status
-        createdAt: serverTimestamp(),
-        updatedAt: null,
-        adminNotes: null,
-      });
+    // Construct mailto link
+    const mailtoSubject = encodeURIComponent(subject);
+    const mailtoBody = encodeURIComponent(
+      `Användarens e-post: ${userEmail || 'Inte angiven (inte inloggad)'}\n\nMeddelande:\n${message}`
+    );
+    const mailtoLink = `mailto:${supportEmailAddress}?subject=${mailtoSubject}&body=${mailtoBody}`;
 
-      setFormSuccess("Ditt meddelande har skickats! Vi återkommer så snart som möjligt.");
-      toast({
-        title: "Meddelande Skickat",
-        description: "Tack för ditt meddelande. Vi har tagit emot ditt ärende.",
-      });
-      setSubject('');
-      setMessage('');
-    } catch (error) {
-      console.error("Error submitting support ticket:", error);
-      setFormError("Kunde inte skicka meddelandet. Försök igen senare eller kontakta oss direkt på marius83christensen@gmail.com.");
-      toast({
-        title: "Fel",
-        description: "Ett fel uppstod när meddelandet skulle skickas.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
+    // Open mail client
+    if (typeof window !== "undefined") {
+        window.location.href = mailtoLink;
     }
+
+
+    // Simulate success as we can't confirm actual send via mailto
+    setFormSuccess("Ditt e-postprogram bör nu ha öppnats med ett förifyllt meddelande. Vänligen skicka det därifrån.");
+    toast({
+      title: "Öppnar E-postprogram",
+      description: "Förbered ditt meddelande för att skickas till supporten.",
+    });
+    setSubject('');
+    setMessage('');
+    setIsSubmitting(false);
   };
   
   if (authLoading) {
@@ -99,7 +89,7 @@ export default function SupportPage() {
           {formSuccess && (
             <Alert variant="default" className="mb-4 border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700 [&>svg]:text-green-600 dark:[&>svg]:text-green-500">
               <CheckCircle className="h-4 w-4" />
-              <AlertTitle>Meddelande Skickat!</AlertTitle>
+              <AlertTitle>Meddelande Förberett!</AlertTitle>
               <ShadAlertDescription>{formSuccess}</ShadAlertDescription>
             </Alert>
           )}
@@ -153,10 +143,11 @@ export default function SupportPage() {
             </form>
           )}
            <p className="text-xs text-muted-foreground mt-4 text-center">
-            Vid akuta problem eller om formuläret inte fungerar, kan du också kontakta oss direkt på <a href={`mailto:marius83christensen@gmail.com`} className="underline hover:text-primary">marius83christensen@gmail.com</a>.
+            Vid akuta problem eller om formuläret inte fungerar, kan du också kontakta oss direkt på <a href={`mailto:${supportEmailAddress}`} className="underline hover:text-primary">{supportEmailAddress}</a>.
           </p>
         </CardContent>
       </Card>
     </div>
   );
 }
+

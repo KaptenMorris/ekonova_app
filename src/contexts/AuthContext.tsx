@@ -25,7 +25,7 @@ interface SubscriptionInfo {
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  isAdmin: boolean | null; // Added isAdmin
+  // isAdmin: boolean | null; // Removed isAdmin
   subscription: SubscriptionInfo | null;
   mainBoardId: string | null;
   boardOrder: string[] | null;
@@ -52,7 +52,7 @@ interface AuthProviderProps {
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null); // Added isAdmin state
+  // const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null); // Removed isAdmin state
   const [subscription, setSubscription] = React.useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = React.useState<string | null>(null);
   const [boardOrder, setBoardOrder] = React.useState<string[] | null>(null);
@@ -70,7 +70,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          setIsAdmin(userData.isAdmin === true); // Fetch isAdmin
+          // setIsAdmin(userData.isAdmin === true); // Removed isAdmin
           const expiresAtTimestamp = userData.subscriptionExpiresAt as Timestamp | undefined;
           setSubscription({
             status: userData.subscriptionStatus || 'inactive',
@@ -90,26 +90,26 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             email: user.email,
             displayName: user.displayName || '',
             createdAt: Timestamp.now(),
-            isAdmin: false, // Default new users to not be admin
+            // isAdmin: false, // Removed isAdmin
             subscriptionStatus: 'inactive',
             subscriptionExpiresAt: null,
             mainBoardId: null,
             boardOrder: [],
           });
-          setIsAdmin(false);
+          // setIsAdmin(false); // Removed isAdmin
           setSubscription({ status: 'inactive', expiresAt: null });
           setMainBoardId(null);
           setBoardOrder(null);
         }
       } catch (error) {
         console.error("Error fetching or creating user data:", error);
-        setIsAdmin(false);
+        // setIsAdmin(false); // Removed isAdmin
         setSubscription({ status: 'inactive', expiresAt: null });
         setMainBoardId(null);
         setBoardOrder(null);
       }
     } else {
-      setIsAdmin(null);
+      // setIsAdmin(null); // Removed isAdmin
       setSubscription(null);
       setMainBoardId(null);
       setBoardOrder(null);
@@ -118,14 +118,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!hasMounted) {
-      return;
+      return; // Don't run onAuthStateChanged until the component has mounted.
     }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
-        setIsAdmin(null);
+        // setIsAdmin(null); // Removed isAdmin
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -133,7 +133,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData, hasMounted, auth]); // Added auth to dependency array
+  }, [fetchUserData, hasMounted, auth]);
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
@@ -153,15 +153,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         email: userCredential.user.email,
         displayName: name,
         createdAt: Timestamp.now(),
-        isAdmin: false, // New users are not admins by default
+        // isAdmin: false, // Removed isAdmin
         subscriptionStatus: 'inactive',
         subscriptionExpiresAt: null,
         mainBoardId: null,
         boardOrder: [],
       });
-      // Also update Firebase Auth profile
-      // await updateProfile(userCredential.user, { displayName: name }); // This seems to have been removed, handle in kontoinstallningar
-      await refreshUserData(); // Refresh to get the newly created user data including isAdmin
+      await refreshUserData(); 
     }
     return userCredential;
   };
@@ -173,15 +171,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const logOut = async () => {
     try {
       await signOut(auth);
-      setCurrentUser(null); // Ensure currentUser is cleared immediately on client
-      setIsAdmin(null);     // Clear isAdmin status
+      setCurrentUser(null); 
+      // setIsAdmin(null); // Removed isAdmin    
       router.push('/logga-in');
     } catch (error) {
       console.error("Error logging out:", error);
     }
   };
 
+
   if (!hasMounted) {
+    // On the server, and on the client before the first useEffect for hasMounted runs
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -189,7 +189,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     );
   }
   
-  if (loading && hasMounted) { 
+  if (loading) { 
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -200,7 +200,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const value = {
     currentUser,
     loading,
-    isAdmin,
+    // isAdmin, // Removed isAdmin
     subscription,
     mainBoardId,
     boardOrder,
@@ -212,3 +212,4 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+

@@ -20,7 +20,7 @@ import {
   HelpCircle,
   LifeBuoy,
   Bot,
-  ShieldCheck, // For Admin link
+  // ShieldCheck, // For Admin link - Removed
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -50,7 +50,7 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
-  adminOnly?: boolean; // New property
+  // adminOnly?: boolean; // Removed adminOnly
 }
 
 const staticNavItems: NavItem[] = [
@@ -63,7 +63,7 @@ const staticNavItems: NavItem[] = [
   { href: '/hjalp', label: 'Hjälp', icon: HelpCircle },
   { href: '/support', label: 'Support', icon: LifeBuoy },
   { href: '/kontoinstallningar', label: 'Kontoinställningar', icon: Settings },
-  { href: '/admin/dashboard', label: 'Admin', icon: ShieldCheck, adminOnly: true }, // Added Admin link
+  // { href: '/admin/dashboard', label: 'Admin', icon: ShieldCheck, adminOnly: true }, // Removed Admin link
 ];
 
 
@@ -72,17 +72,17 @@ const AppLayoutInner: FC<{
   logOut: () => void;
   pathname: string;
   children: ReactNode;
-  isAdmin: boolean | null; // Added isAdmin prop
-}> = ({ currentUser, logOut, pathname, children, isAdmin }) => {
+  // isAdmin: boolean | null; // Removed isAdmin prop
+}> = ({ currentUser, logOut, pathname, children /*, isAdmin*/ }) => {
   const { isMobile, setOpenMobile } = useSidebar();
 
   const userDisplayName = currentUser.displayName || currentUser.email || 'Användare';
   const userEmail = currentUser.email || 'Ingen e-post';
   const userAvatarFallback = (userDisplayName.split(' ').map(n => n[0]).join('') || userEmail[0] || 'A').toUpperCase();
 
-  const navItems = useMemo(() => 
-    staticNavItems.filter(item => !item.adminOnly || (item.adminOnly && isAdmin === true))
-  , [isAdmin]);
+  const navItems = useMemo(() => staticNavItems, []);
+    // Filter logic removed: staticNavItems.filter(item => !item.adminOnly || (item.adminOnly && isAdmin === true))
+  //, [isAdmin]); // Dependency removed
 
   const currentPage = navItems.find(item => pathname.startsWith(item.href));
   const pageTitle = currentPage ? currentPage.label : 'Ekonova';
@@ -173,7 +173,7 @@ const AppLayoutInner: FC<{
 const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, loading, logOut, isAdmin } = useAuth(); // Added isAdmin
+  const { currentUser, loading, logOut /*, isAdmin*/ } = useAuth(); // Removed isAdmin
 
   useEffect(() => {
     if (!loading && !currentUser) {
@@ -202,7 +202,7 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
         currentUser={currentUser}
         logOut={logOut}
         pathname={pathname}
-        isAdmin={isAdmin} // Pass isAdmin
+        // isAdmin={isAdmin} // Removed isAdmin
       >
         {children}
       </AppLayoutInner>
@@ -211,3 +211,4 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
 };
 
 export default AppLayout;
+
