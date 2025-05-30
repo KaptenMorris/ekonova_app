@@ -18,7 +18,7 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
-  console.log("AdminLayout rendering/re-evaluating... (Cache Buster v7 - ULTIMATE ATTEMPT)"); // Distinct Cache buster
+  console.log("AdminLayout rendering/re-evaluating... (Cache Buster v9 - EXTREME MEASURES)"); // Distinct Cache buster
   const router = useRouter();
   const pathname = usePathname();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
