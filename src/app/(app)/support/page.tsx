@@ -26,7 +26,7 @@ export default function SupportPage() {
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   const userEmail = currentUser?.email || '';
-  // const supportEmailAddress = "marius83christensen@gmail.com"; // No longer directly used for mailto
+  // const supportEmailAddress = "info@marius-christensen.se"; // No longer directly used for mailto
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -154,10 +154,11 @@ export default function SupportPage() {
             </form>
           )}
            <p className="text-xs text-muted-foreground mt-4 text-center">
-            Meddelanden sparas internt. För direktkontakt via e-post, använd <a href={`mailto:marius83christensen@gmail.com`} className="underline hover:text-primary">marius83christensen@gmail.com</a>.
+            Meddelanden sparas internt. För direktkontakt via e-post, använd <a href={`mailto:info@marius-christensen.se`} className="underline hover:text-primary">info@marius-christensen.se</a>.
           </p>
         </CardContent>
       </Card>
     </div>
   );
 }
+
