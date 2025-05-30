@@ -68,7 +68,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
-  // If on a public admin path (like admin-login), render children directly without the main admin layout
   if (publicAdminPaths.includes(pathname)) {
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
@@ -78,7 +77,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
-  // If not authenticated and not on a public path, show loading/redirect state
   if (!isAuthenticated) {
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -91,7 +89,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
-  // Render the main admin layout for authenticated users on protected admin pages
   return (
     <ThemeProvider
       attribute="class"
@@ -111,7 +108,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
                 <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
               </Button>
             </Link>
-            {/* Add more admin navigation links here if needed */}
           </nav>
           <Separator className="my-4" />
           <Button variant="ghost" onClick={handleLogout} className="w-full justify-start">

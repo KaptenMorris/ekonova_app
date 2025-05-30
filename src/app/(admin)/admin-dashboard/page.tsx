@@ -27,7 +27,6 @@ export default function AdminDashboardPage() {
           </p>
         </CardContent>
       </Card>
-      {/* Framtida admin-komponenter och data kan visas här */}
     </div>
   );
 }
