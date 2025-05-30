@@ -18,7 +18,7 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
-  console.log("AdminLayout rendering/re-evaluating... (Cache Buster v9 - EXTREME MEASURES)"); // Distinct Cache buster
+  console.log(`AdminLayout rendering/re-evaluating... (Cache Buster vFINAL - ${new Date().toISOString()})`);
   const router = useRouter();
   const pathname = usePathname();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -30,13 +30,14 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     let title = 'Admin - Ekonova';
     if (typeof window !== 'undefined') {
       const adminAuthStatus = localStorage.getItem('isAdminAuthenticated');
-      if (adminAuthStatus === 'true') {
-        setIsAuthenticated(true);
+      const currentAuth = adminAuthStatus === 'true';
+      setIsAuthenticated(currentAuth); // Set state based on current localStorage
+
+      if (currentAuth) {
         if (publicAdminPaths.includes(pathname)) {
           router.replace('/admin-dashboard');
         }
       } else {
-        setIsAuthenticated(false);
         if (!publicAdminPaths.includes(pathname)) {
           router.replace('/admin-login');
         }
@@ -56,7 +57,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('isAdminAuthenticated');
     }
-    setIsAuthenticated(false);
+    setIsAuthenticated(false); // Update state immediately
     router.replace('/admin-login');
   };
 
@@ -72,7 +73,22 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
+  // If on a public path (like /admin-login)
   if (publicAdminPaths.includes(pathname)) {
+    // And already authenticated, redirect to dashboard.
+    if (isAuthenticated) {
+      // useEffect will handle the redirection, this is a fallback loader.
+      return (
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <div className="flex h-screen w-full items-center justify-center bg-background">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="ml-4">Omdirigerar till adminpanelen...</p>
+          </div>
+          <Toaster />
+        </ThemeProvider>
+      );
+    }
+    // Otherwise, render the public page (e.g. login form)
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         {children}
@@ -81,7 +97,9 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
+  // If on a protected path AND not authenticated
   if (!isAuthenticated) {
+    // useEffect will handle redirection to /admin-login. This is a fallback loader.
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -93,6 +111,7 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
     );
   }
 
+  // If authenticated and on a protected path, render the admin layout
   return (
     <ThemeProvider
       attribute="class"
@@ -112,7 +131,6 @@ const AdminLayout: FC<AdminLayoutProps> = ({ children }) => {
                 <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
               </Button>
             </Link>
-            {/* Add other admin navigation links here if needed */}
           </nav>
           <Separator className="my-4" />
           <Button variant="ghost" onClick={handleLogout} className="w-full justify-start">
