@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Send, CheckCircle, AlertCircle, MessageSquarePlus } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
@@ -33,6 +33,17 @@ export default function SupportPage() {
       setInputEmail('');
     }
   }, [currentUser]);
+
+  const resetForm = () => {
+    setSubject('');
+    setMessage('');
+    if (!currentUser) {
+      setInputEmail('');
+    }
+    setFormError(null);
+    setFormSuccess(null);
+    setIsSubmitting(false);
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,10 +79,11 @@ export default function SupportPage() {
         title: "Meddelande Skickat!",
         description: "Tack för ditt meddelande.",
       });
+      // Rensa fälten här, men låt inputEmail vara kvar om användaren är inloggad
       setSubject('');
       setMessage('');
       if (!currentUser) {
-        setInputEmail('');
+        // setInputEmail(''); // Rensa inte e-post om det var det som skickades, ifall de vill skicka igen med samma
       }
     } catch (error: any) {
       console.error("Error sending support ticket:", error);
@@ -79,7 +91,6 @@ export default function SupportPage() {
       if (error.code) {
         detailedErrorMessage += ` (Felkod: ${error.code})`;
       }
-      // Undvik att logga hela error.message i consolen om det är ett vanligt permission-denied, då koden redan visas.
       if (error.message && error.code !== 'permission-denied' && error.code !== 'PERMISSION_DENIED') {
         console.error("Firebase error message details:", error.message);
       }
@@ -88,7 +99,7 @@ export default function SupportPage() {
         title: "Fel vid skickande",
         description: detailedErrorMessage,
         variant: "destructive",
-        duration: 10000, // Längre tid för att hinna se felkoden
+        duration: 10000,
       });
     } finally {
       setIsSubmitting(false);
@@ -118,11 +129,16 @@ export default function SupportPage() {
             </Alert>
           )}
           {formSuccess && (
-            <Alert variant="default" className="mb-4 border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700 [&>svg]:text-green-600 dark:[&>svg]:text-green-500">
-              <CheckCircle className="h-4 w-4" />
-              <AlertTitle>Meddelande Skickat!</AlertTitle>
-              <ShadAlertDescription>{formSuccess}</ShadAlertDescription>
-            </Alert>
+            <div className="mb-4 space-y-4">
+              <Alert variant="default" className="border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700 [&>svg]:text-green-600 dark:[&>svg]:text-green-500">
+                <CheckCircle className="h-4 w-4" />
+                <AlertTitle>Meddelande Skickat!</AlertTitle>
+                <ShadAlertDescription>{formSuccess}</ShadAlertDescription>
+              </Alert>
+              <Button onClick={resetForm} className="w-full">
+                <MessageSquarePlus className="mr-2 h-4 w-4" /> Skicka ett till meddelande
+              </Button>
+            </div>
           )}
           {!formSuccess && (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -133,14 +149,14 @@ export default function SupportPage() {
                   type="email"
                   value={inputEmail}
                   placeholder="din.email@example.com"
-                  disabled={!!currentUser} 
+                  disabled={!!currentUser || isSubmitting} 
                   readOnly={!!currentUser} 
                   required={!currentUser}
                   onChange={e => {
                     if (!currentUser) {
                       setInputEmail(e.target.value);
                     }
-                    if (formError) setFormError(null); // Rensa felmeddelande vid ändring
+                    if (formError) setFormError(null); 
                   }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
@@ -155,6 +171,7 @@ export default function SupportPage() {
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Kort beskrivning av ditt ärende"
                   required
+                  disabled={isSubmitting}
                 />
               </div>
               <div>
@@ -166,6 +183,7 @@ export default function SupportPage() {
                   placeholder="Beskriv ditt ärende, din fråga eller bugg så detaljerat som möjligt."
                   rows={6}
                   required
+                  disabled={isSubmitting}
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isSubmitting}>
