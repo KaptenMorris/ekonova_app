@@ -44,7 +44,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
-          <AppVersionInfoProvider> {/* Added */}
+          <AppVersionInfoProvider> {/* Ensured provider is wrapping children */}
             {/* Removed: <LanguageProvider> */}
               <ThemeProvider
                 attribute="class"
@@ -56,7 +56,7 @@ export default function RootLayout({
                 <Toaster />
               </ThemeProvider>
             {/* Removed: </LanguageProvider> */}
-          </AppVersionInfoProvider> {/* Added */}
+          </AppVersionInfoProvider> {/* Ensured provider is wrapping children */}
         </AuthProvider>
       </body>
     </html>
