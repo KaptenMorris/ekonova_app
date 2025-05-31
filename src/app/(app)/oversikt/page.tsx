@@ -62,7 +62,7 @@ interface SavingsGoal {
 
 interface MonthlySummary {
     id: string; // YYYY-MM
-    netBalanceAtMonthEnd: number; // monthIncome - monthExpenses for THIS month
+    netBalanceAtMonthEnd: number; // monthIncome - monthExpenses for THIS month (actual, not including rollover)
     lastUpdated?: Timestamp;
 }
 
@@ -88,9 +88,8 @@ export default function OverviewPage() {
   const [selectedBoardId, setSelectedBoardId] = useState<string | undefined>(undefined);
   const [selectedMonthDate, setSelectedMonthDate] = useState<Date>(startOfMonth(new Date()));
 
-  const [monthlyIncome, setMonthlyIncome] = useState(0); // Income from transactions THIS month
-  const [monthlyExpenses, setMonthlyExpenses] = useState(0); // Expenses from transactions THIS month
-  // rolloverFromPreviousMonth is kept for potential future use or if saving logic needs it, but not directly displayed as "Överfört"
+  const [monthlyIncome, setMonthlyIncome] = useState(0); // Actual income from transactions THIS month
+  const [monthlyExpenses, setMonthlyExpenses] = useState(0); // Actual expenses from transactions THIS month
   const [rolloverFromPreviousMonth, setRolloverFromPreviousMonth] = useState(0); 
   const [unpaidBillsTotal, setUnpaidBillsTotal] = useState(0);
 
@@ -225,7 +224,7 @@ export default function OverviewPage() {
     unsubPrevMonthSummary = onSnapshot(prevMonthSummaryDocRef, (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data() as MonthlySummary;
-            setRolloverFromPreviousMonth(data.netBalanceAtMonthEnd || 0); // Keep for saving logic, not direct display
+            setRolloverFromPreviousMonth(data.netBalanceAtMonthEnd || 0);
         } else {
             setRolloverFromPreviousMonth(0);
         }
@@ -296,6 +295,7 @@ export default function OverviewPage() {
     }
 
     const currentMonthString = format(selectedMonthDate, 'yyyy-MM');
+    // This is the ACTUAL net for THIS month's transactions, to be carried over.
     const netBalanceForStorage = monthlyIncome - monthlyExpenses;
 
     const saveTimer = setTimeout(async () => {
@@ -321,8 +321,8 @@ export default function OverviewPage() {
     currentUser?.uid, 
     selectedBoardId, 
     selectedMonthDate, 
-    monthlyIncome, 
-    monthlyExpenses, 
+    monthlyIncome, // Depends on actual monthly income
+    monthlyExpenses, // Depends on actual monthly expenses
     isLoadingPageData, 
     isLoadingRollover,
     canEditActiveBoard,
@@ -368,18 +368,22 @@ export default function OverviewPage() {
     return () => unsubscribe();
   }, [currentUser?.uid, selectedBoardId, isSubscribed, authLoading, toast]);
 
-  const netBalanceDisplayed = monthlyIncome - monthlyExpenses; // Reverted to simple net balance
+  const totalDisposableIncome = useMemo(() => monthlyIncome + rolloverFromPreviousMonth, [monthlyIncome, rolloverFromPreviousMonth]);
+  const netBalanceDisplayed = useMemo(() => totalDisposableIncome - monthlyExpenses, [totalDisposableIncome, monthlyExpenses]);
+  const netBalanceForCarryOver = useMemo(() => monthlyIncome - monthlyExpenses, [monthlyIncome, monthlyExpenses]);
+
 
   const incomeExpenseChartData = useMemo(() => [
-    { name: 'Inkomst', value: monthlyIncome, fill: "hsl(var(--accent))" }, // Uses actual monthly income
+    { name: 'Total Inkomst', value: totalDisposableIncome, fill: "hsl(var(--accent))" },
     { name: 'Utgifter', value: monthlyExpenses, fill: "hsl(var(--destructive))" },
-  ], [monthlyIncome, monthlyExpenses]);
+  ], [totalDisposableIncome, monthlyExpenses]);
 
   const chartConfigIncomeExpense = {
     value: { label: "Belopp (kr)" },
-    Inkomst: { label: "Månadens Inkomst", color: "hsl(var(--accent))" }, // Label updated
+    'Total Inkomst': { label: "Total Inkomst (inkl. överfört)", color: "hsl(var(--accent))" },
     Utgifter: { label: "Månadens Utgifter", color: "hsl(var(--destructive))" },
   };
+
 
   const chartConfigExpenseDistribution = useMemo(() => {
     const config: any = { value: { label: "Belopp (kr)" } };
@@ -550,12 +554,20 @@ export default function OverviewPage() {
               <CardDescription>För {boards.find(b => b.id === selectedBoardId)?.name || ""} ({format(selectedMonthDate, 'MMMM yyyy', { locale: sv })})</CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-1">
+              <div className="flex justify-between text-sm">
+                <span>Överfört från föreg. månad:</span> 
+                <span className={`font-medium ${rolloverFromPreviousMonth >= 0 ? 'text-muted-foreground' : 'text-destructive'}`}>
+                  {rolloverFromPreviousMonth >= 0 ? '+ ' : '- '}
+                  {Math.abs(rolloverFromPreviousMonth).toLocaleString('sv-SE')} kr
+                </span>
+              </div>
               <div className="flex justify-between text-sm"><span>Månadens Inkomster:</span> <span className="font-medium text-accent">+ {monthlyIncome.toLocaleString('sv-SE')} kr</span></div>
+              <div className="flex justify-between text-sm font-semibold border-b pb-1 mb-1"><span>Total Disponibel Inkomst:</span> <span className={`font-bold ${totalDisposableIncome >= 0 ? 'text-accent' : 'text-destructive'}`}>{totalDisposableIncome >= 0 ? '+ ' : '- '}{Math.abs(totalDisposableIncome).toLocaleString('sv-SE')} kr</span></div>
               <div className="flex justify-between text-sm"><span>Månadens Utgifter:</span> <span className="font-medium text-destructive">- {monthlyExpenses.toLocaleString('sv-SE')} kr</span></div>
               <div className="flex justify-between pt-1 border-t mt-1"><strong>Nettosaldo (Denna månad):</strong> <strong className={` ${netBalanceDisplayed >= 0 ? 'text-accent' : 'text-destructive'}`}>{netBalanceDisplayed >= 0 ? '+ ' : '- '}{Math.abs(netBalanceDisplayed).toLocaleString('sv-SE')} kr</strong></div>
               <div className="flex justify-between text-xs text-muted-foreground pt-1 border-t mt-2">
                 <span>Resultat som överförs till nästkommande månad:</span> 
-                <span className="font-medium">{(monthlyIncome - monthlyExpenses).toLocaleString('sv-SE')} kr</span>
+                <span className="font-medium">{netBalanceForCarryOver.toLocaleString('sv-SE')} kr</span>
               </div>
             </CardContent>
              <CardFooter className="p-4 pt-0 sm:p-6 sm:pt-0">
@@ -563,7 +575,7 @@ export default function OverviewPage() {
                     <Info className="h-4 w-4" />
                     <AlertTitle className="text-xs font-semibold">Info om "Resultat som överförs"</AlertTitle>
                     <ShadAlertDescriptionComponent>
-                        Detta är månadens faktiska inkomster minus utgifter, och är det belopp som sparas för att kunna användas som ingående balans nästa månad.
+                        Detta är månadens faktiska inkomster minus utgifter (exklusive det som överförts från föregående månad). Det är detta belopp som sparas och kan användas som ingående balans nästa månad.
                     </ShadAlertDescriptionComponent>
                 </Alert>
             </CardFooter>
@@ -577,7 +589,7 @@ export default function OverviewPage() {
           <Card className="sm:col-span-2 lg:col-span-1">
             <CardHeader className="p-4 sm:p-6"><CardTitle className="text-xl md:text-2xl">Inkomster vs. Utgifter</CardTitle><CardDescription>För {format(selectedMonthDate, 'MMMM yyyy', { locale: sv })}.</CardDescription></CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 h-[200px] sm:h-[250px] md:h-[200px] lg:h-[250px]">
-              {monthlyIncome > 0 || monthlyExpenses > 0 ? (
+              {totalDisposableIncome > 0 || monthlyExpenses > 0 ? (
                 <ChartContainer config={chartConfigIncomeExpense} className="h-full w-full">
                   <BarChart accessibilityLayer data={incomeExpenseChartData} layout="vertical" margin={{ left: isMobile ? 100 : 110, right: 10, top: 5, bottom: 5 }}>
                     <XAxis type="number" dataKey="value" hide />
@@ -668,3 +680,4 @@ export default function OverviewPage() {
     </div>
   );
 }
+
