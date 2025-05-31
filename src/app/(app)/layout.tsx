@@ -41,6 +41,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
+import WhatsNewDialog from '@/components/shared/whats-new-dialog'; // Added
+import { useAppVersionInfo } from '@/contexts/AppVersionContext'; // Added
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -75,6 +77,7 @@ const AppLayoutInner: FC<{
   // isAdmin: boolean | null; // Removed isAdmin prop
 }> = ({ currentUser, logOut, pathname, children /*, isAdmin*/ }) => {
   const { isMobile, setOpenMobile } = useSidebar();
+  const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo(); // Added
 
   const userDisplayName = currentUser.displayName || currentUser.email || 'Användare';
   const userEmail = currentUser.email || 'Ingen e-post';
@@ -165,6 +168,13 @@ const AppLayoutInner: FC<{
           {children}
         </main>
       </SidebarInset>
+      {!isLoadingVersionInfo && ( // Added dialog rendering
+        <WhatsNewDialog
+          isOpen={showWhatsNewDialog}
+          onClose={closeWhatsNewDialog}
+          versionInfo={latestVersionInfo}
+        />
+      )}
     </>
   );
 };
@@ -211,4 +221,3 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
 };
 
 export default AppLayout;
-

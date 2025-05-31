@@ -9,6 +9,7 @@ import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext';
 // Removed: import { LanguageProvider } from '@/contexts/LanguageContext';
 import React, { useEffect } from 'react';
+import { AppVersionInfoProvider } from '@/contexts/AppVersionContext'; // Added
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -43,17 +44,19 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
-          {/* Removed: <LanguageProvider> */}
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-              <Toaster />
-            </ThemeProvider>
-          {/* Removed: </LanguageProvider> */}
+          <AppVersionInfoProvider> {/* Added */}
+            {/* Removed: <LanguageProvider> */}
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
+                <Toaster />
+              </ThemeProvider>
+            {/* Removed: </LanguageProvider> */}
+          </AppVersionInfoProvider> {/* Added */}
         </AuthProvider>
       </body>
     </html>
