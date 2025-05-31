@@ -7,20 +7,27 @@ import { BarChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend,
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, onSnapshot, query as firestoreQuery, where, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, onSnapshot, query as firestoreQuery, where, orderBy, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
-import { Alert, AlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose, DialogDescription as ShadDialogDescription } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, PiggyBank, Edit3, Trash2, PlusCircle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription as ShadAlertDescriptionComponent } from "@/components/ui/alert";
 import { useIsMobile } from '@/hooks/use-mobile';
 import SubscriptionPrompt from '@/components/shared/subscription-prompt';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 
 interface Board {
   id: string;
   name: string;
+  ownerUid?: string;
+  members?: string[];
+  memberRoles?: { [uid: string]: 'viewer' | 'editor' };
 }
 
 interface Transaction {
@@ -44,6 +51,15 @@ interface Category {
   type: 'income' | 'expense';
 }
 
+interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  boardId: string;
+  createdAt?: Timestamp;
+}
+
 const defaultChartColors = [
   "hsl(var(--chart-1))",
   "hsl(var(--chart-2))",
@@ -54,6 +70,7 @@ const defaultChartColors = [
   "hsl(var(--secondary))",
 ];
 
+type UserRole = 'owner' | 'editor' | 'viewer' | 'none';
 
 export default function OverviewPage() {
   const { currentUser, subscription, loading: authLoading, mainBoardId } = useAuth();
@@ -72,15 +89,25 @@ export default function OverviewPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [expenseDistributionData, setExpenseDistributionData] = useState<any[]>([]);
 
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [isLoadingSavingsGoals, setIsLoadingSavingsGoals] = useState(false);
+  const [isSavingsGoalDialogOpen, setIsSavingsGoalDialogOpen] = useState(false);
+  const [editingSavingsGoal, setEditingSavingsGoal] = useState<SavingsGoal | null>(null);
+  const [goalName, setGoalName] = useState('');
+  const [goalTargetAmount, setGoalTargetAmount] = useState('');
+  const [goalCurrentAmount, setGoalCurrentAmount] = useState('');
+  const [savingsGoalDialogError, setSavingsGoalDialogError] = useState<string | null>(null);
+
+
   const [isLoadingBoards, setIsLoadingBoards] = useState(true);
-  const [isLoadingPageData, setIsLoadingPageData] = useState(false); // Changed from isLoadingBoardData
+  const [isLoadingPageData, setIsLoadingPageData] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isSubscribed = useMemo(() => {
     return subscription?.status === 'active' && (subscription.expiresAt ? subscription.expiresAt > new Date() : true);
   }, [subscription]);
 
-  // Effect 1: Fetch user's boards
+  // Effect 1: Fetch user's boards (now fetches full board data)
   useEffect(() => {
     if (authLoading || !currentUser?.uid || !isSubscribed) {
       setBoards([]);
@@ -92,7 +119,7 @@ export default function OverviewPage() {
     const boardsRef = collection(db, 'boards');
     const q = firestoreQuery(boardsRef, where('members', 'array-contains', currentUser.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      let fetchedBoards = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name } as Board));
+      let fetchedBoards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Board));
       fetchedBoards.sort((a,b) => a.name.localeCompare(b.name));
       setBoards(fetchedBoards);
       setIsLoadingBoards(false);
@@ -113,48 +140,64 @@ export default function OverviewPage() {
     return () => unsubscribe();
   }, [currentUser?.uid, isSubscribed, authLoading, toast]);
 
-  // Effect 2: Set selectedBoardId based on mainBoardId or first available board
+  // Effect 2: Initialize selectedBoardId or validate existing one
   useEffect(() => {
     if (authLoading || isLoadingBoards || !currentUser || !isSubscribed) {
       return;
     }
 
-    let newTargetBoardId: string | undefined = undefined;
+    if (boards.length === 0 && !isLoadingBoards) {
+      setSelectedBoardId(undefined);
+      return;
+    }
+    
     const boardExists = (id: string | undefined): id is string => !!id && boards.some(b => b.id === id);
 
+    if (selectedBoardId && boardExists(selectedBoardId)) {
+      // Current selection is valid, do nothing to override user's choice
+      return;
+    }
+
+    // If no valid board is selected, try to set one
+    let newTargetBoardId: string | undefined = undefined;
     if (mainBoardId && boardExists(mainBoardId)) {
       newTargetBoardId = mainBoardId;
     } else if (boards.length > 0) {
       newTargetBoardId = boards[0].id;
     }
-    
-    if (selectedBoardId !== newTargetBoardId) {
-      setSelectedBoardId(newTargetBoardId);
-    }
+    setSelectedBoardId(newTargetBoardId);
 
-  }, [boards, mainBoardId, currentUser, authLoading, isLoadingBoards, isSubscribed, selectedBoardId]);
+  }, [boards, mainBoardId, currentUser, authLoading, isLoadingBoards, isSubscribed]);
 
+
+  const activeBoardDetails = useMemo(() => boards.find(b => b.id === selectedBoardId), [boards, selectedBoardId]);
+
+  const currentUserRoleOnActiveBoard = useMemo((): UserRole => {
+      if (!currentUser || !activeBoardDetails) return 'none';
+      if (activeBoardDetails.ownerUid === currentUser.uid) return 'owner';
+      return activeBoardDetails.memberRoles?.[currentUser.uid] || (activeBoardDetails.members?.includes(currentUser.uid) ? 'viewer' : 'none');
+  }, [currentUser, activeBoardDetails]);
+
+  const canEditActiveBoard = useMemo(() => {
+      return currentUserRoleOnActiveBoard === 'owner' || currentUserRoleOnActiveBoard === 'editor';
+  }, [currentUserRoleOnActiveBoard]);
 
   // Effect 3: Fetch page data (transactions, bills, categories) for the selected board and month
   useEffect(() => {
-    console.log(`[OV_PAGE] Data fetching useEffect. selectedBoardId: ${selectedBoardId}, currentUser: !!${currentUser?.uid}, sub: ${isSubscribed}, authLoad: ${authLoading}`);
     if (!currentUser?.uid || !selectedBoardId || !isSubscribed || authLoading) {
-      console.log(`[OV_PAGE] Conditions NOT met for data fetching. selectedBoardId: ${selectedBoardId}. Clearing data.`);
       setTotalIncome(0);
       setTotalExpenses(0);
-      setUnpaidBillsTotal(0); // This might be board-specific, so clear
+      setUnpaidBillsTotal(0); 
       setRawTransactions([]);
       setCategories([]);
-      if (isLoadingPageData) setIsLoadingPageData(false); // Ensure loading state is reset
+      if (isLoadingPageData) setIsLoadingPageData(false); 
       return;
     }
 
-    console.log(`[OV_PAGE] Fetching data FOR board: ${selectedBoardId}. Setting isLoadingPageData = true.`);
     setIsLoadingPageData(true);
     setError(null);
     setTotalIncome(0);
     setTotalExpenses(0);
-    // setUnpaidBillsTotal(0); // Potentially keep if it's global, or reset
     setRawTransactions([]);
     setCategories([]);
 
@@ -166,19 +209,16 @@ export default function OverviewPage() {
     const monthStart = format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd');
     const monthEnd = format(endOfMonth(selectedMonthDate), 'yyyy-MM-dd');
 
-    console.log(`[OV_PAGE] Fetching data for board ${selectedBoardId}, month: ${monthStart} to ${monthEnd}`);
-
     let unsubTransactions: () => void = () => {};
     let unsubBills: () => void = () => {};
     let unsubCategories: () => void = () => {};
 
     let transactionsLoaded = false;
     let categoriesLoaded = false;
-    let billsLoaded = false; // Added for bills
+    let billsLoaded = false;
 
     const checkAllDataLoaded = () => {
-      if (transactionsLoaded && categoriesLoaded && billsLoaded) { // Check all relevant data sources
-        console.log(`[OV_PAGE] All main data loaded for board ${selectedBoardId}. Setting isLoadingPageData = false.`);
+      if (transactionsLoaded && categoriesLoaded && billsLoaded) {
         setIsLoadingPageData(false);
       }
     };
@@ -186,9 +226,8 @@ export default function OverviewPage() {
     unsubTransactions = onSnapshot(
       firestoreQuery(transactionsRef, where("date", ">=", monthStart), where("date", "<=", monthEnd)),
       (snapshot) => {
-        console.log(`[OV_PAGE] Transactions snapshot for board ${selectedBoardId}. Docs: ${snapshot.docs.length}`);
         let boardTransData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-        boardTransData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort by date
+        boardTransData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
         setRawTransactions(boardTransData);
 
         const currentIncome = boardTransData.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
@@ -198,40 +237,37 @@ export default function OverviewPage() {
         transactionsLoaded = true;
         checkAllDataLoaded();
       }, (err) => {
-        console.error(`[OV_PAGE] Error fetching transactions for board ${selectedBoardId}:`, err);
+        console.error(`Error fetching transactions for board ${selectedBoardId}:`, err);
         setError("Kunde inte hämta transaktioner för den valda månaden.");
-        setIsLoadingPageData(false); 
+        transactionsLoaded = true; // Still mark as loaded to potentially unblock loading state
+        checkAllDataLoaded();
+        setIsLoadingPageData(false); // Explicitly set loading to false on error
       });
 
     unsubBills = onSnapshot(firestoreQuery(billsRef, where('paid', '==', false)), (snapshot) => {
-      console.log(`[OV_PAGE] Bills snapshot for board ${selectedBoardId}. Docs: ${snapshot.docs.length}`);
       const currentUnpaidTotal = snapshot.docs.reduce((sum, doc) => sum + (doc.data() as Bill).amount, 0);
       setUnpaidBillsTotal(currentUnpaidTotal);
-      billsLoaded = true; // Mark bills as loaded
+      billsLoaded = true;
       checkAllDataLoaded();
     }, (err) => {
-      console.error(`[OV_PAGE] Error fetching bills for board ${selectedBoardId}:`, err);
-      // setError("Kunde inte hämta räkningar."); 
-      billsLoaded = true; // Still mark as loaded to not hang indefinitely
+      console.error(`Error fetching bills for board ${selectedBoardId}:`, err);
+      billsLoaded = true;
       checkAllDataLoaded();
     });
 
     unsubCategories = onSnapshot(firestoreQuery(categoriesRef), (snapshot) => {
-      console.log(`[OV_PAGE] Categories snapshot for board ${selectedBoardId}. Docs: ${snapshot.docs.length}`);
       let fetchedCats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
       fetchedCats.sort((a,b) => a.name.localeCompare(b.name));
       setCategories(fetchedCats);
       categoriesLoaded = true;
       checkAllDataLoaded();
     }, (err) => {
-      console.error(`[OV_PAGE] Error fetching categories for board ${selectedBoardId}:`, err);
-      // setError("Kunde inte hämta kategorier.");
-      categoriesLoaded = true; // Still mark as loaded
+      console.error(`Error fetching categories for board ${selectedBoardId}:`, err);
+      categoriesLoaded = true;
       checkAllDataLoaded();
     });
     
     return () => {
-      console.log(`[OV_PAGE] Cleaning up Firestore listeners for board: ${selectedBoardId}`);
       unsubTransactions();
       unsubBills();
       unsubCategories();
@@ -261,6 +297,28 @@ export default function OverviewPage() {
       setExpenseDistributionData([]);
     }
   }, [rawTransactions, categories]);
+
+  // Effect for fetching savings goals
+  useEffect(() => {
+    if (!currentUser?.uid || !selectedBoardId || !isSubscribed || authLoading) {
+      setSavingsGoals([]);
+      if (isLoadingSavingsGoals) setIsLoadingSavingsGoals(false);
+      return;
+    }
+    setIsLoadingSavingsGoals(true);
+    const goalsRef = collection(db, 'boards', selectedBoardId, 'savingsGoals');
+    const q = firestoreQuery(goalsRef, orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedGoals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SavingsGoal));
+      setSavingsGoals(fetchedGoals);
+      setIsLoadingSavingsGoals(false);
+    }, (err) => {
+      console.error("Error fetching savings goals:", err);
+      toast({ title: "Fel", description: "Kunde inte hämta sparmål.", variant: "destructive" });
+      setIsLoadingSavingsGoals(false);
+    });
+    return () => unsubscribe();
+  }, [currentUser?.uid, selectedBoardId, isSubscribed, authLoading, toast]);
 
 
   const netBalance = totalIncome - totalExpenses;
@@ -295,8 +353,6 @@ export default function OverviewPage() {
   const isCurrentMonthOrFuture = isSameMonth(selectedMonthDate, new Date()) || selectedMonthDate > new Date();
 
   const tooltipFormatter = (value: number, name: string, item: any) => {
-    // item is the specific entry from the Recharts payload array.
-    // It should contain 'name', 'value', 'color', and 'percent'.
     const percentage = item.percent; 
     const formattedValue = value.toLocaleString('sv-SE');
     const formattedPercentage = (percentage !== undefined && percentage !== null)
@@ -317,44 +373,123 @@ export default function OverviewPage() {
     );
   };
 
+  // Savings Goal Functions
+  const resetSavingsGoalForm = () => {
+    setGoalName('');
+    setGoalTargetAmount('');
+    setGoalCurrentAmount('');
+    setEditingSavingsGoal(null);
+    setSavingsGoalDialogError(null);
+  };
+
+  const handleOpenSavingsGoalDialog = (goal?: SavingsGoal) => {
+    if (!canEditActiveBoard) {
+      toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att hantera sparmål på denna tavla.", variant: "destructive" });
+      return;
+    }
+    if (goal) {
+      setEditingSavingsGoal(goal);
+      setGoalName(goal.name);
+      setGoalTargetAmount(String(goal.targetAmount));
+      setGoalCurrentAmount(String(goal.currentAmount));
+    } else {
+      resetSavingsGoalForm();
+    }
+    setIsSavingsGoalDialogOpen(true);
+  };
+
+  const handleSaveSavingsGoal = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedBoardId || !canEditActiveBoard) {
+      setSavingsGoalDialogError("Ingen tavla vald eller otillräcklig behörighet.");
+      return;
+    }
+    const target = parseFloat(goalTargetAmount);
+    const current = parseFloat(goalCurrentAmount);
+
+    if (goalName.trim() === '' || isNaN(target) || target <= 0 || isNaN(current) || current < 0) {
+      setSavingsGoalDialogError("Fyll i namn och giltiga belopp (målbelopp > 0, nuvarande belopp >= 0).");
+      return;
+    }
+    if (current > target) {
+      setSavingsGoalDialogError("Nuvarande belopp kan inte överstiga målbeloppet.");
+      return;
+    }
+    setSavingsGoalDialogError(null);
+
+    const goalPayload: Omit<SavingsGoal, 'id' | 'createdAt'> & { createdAt?: any, boardId: string } = {
+      name: goalName.trim(),
+      targetAmount: target,
+      currentAmount: current,
+      boardId: selectedBoardId,
+    };
+
+    try {
+      const goalsCollectionRef = collection(db, 'boards', selectedBoardId, 'savingsGoals');
+      if (editingSavingsGoal) {
+        await updateDoc(doc(goalsCollectionRef, editingSavingsGoal.id), goalPayload);
+        toast({ title: "Sparmål Uppdaterat!" });
+      } else {
+        goalPayload.createdAt = serverTimestamp();
+        await addDoc(goalsCollectionRef, goalPayload);
+        toast({ title: "Sparmål Skapat!" });
+      }
+      setIsSavingsGoalDialogOpen(false);
+      resetSavingsGoalForm();
+    } catch (err) {
+      console.error("Error saving savings goal:", err);
+      toast({ title: "Fel", description: "Kunde inte spara sparmålet.", variant: "destructive" });
+      setSavingsGoalDialogError("Ett fel uppstod när sparmålet skulle sparas.");
+    }
+  };
+
+  const handleDeleteSavingsGoal = async (goalId: string) => {
+    if (!selectedBoardId || !canEditActiveBoard) {
+      toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att radera sparmål.", variant: "destructive" });
+      return;
+    }
+    if (!confirm("Är du säker på att du vill radera detta sparmål?")) return;
+
+    try {
+      await deleteDoc(doc(db, 'boards', selectedBoardId, 'savingsGoals', goalId));
+      toast({ title: "Sparmål Raderat" });
+    } catch (err) {
+      console.error("Error deleting savings goal:", err);
+      toast({ title: "Fel", description: "Kunde inte radera sparmålet.", variant: "destructive" });
+    }
+  };
+
 
   if (authLoading && !currentUser) { 
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> Laddar användardata...</div>;
   }
-
   if (!currentUser && !authLoading) { 
     return <div className="text-center p-8">Vänligen logga in för att se din ekonomiska översikt.</div>
   }
-
   if (!isSubscribed && currentUser) { 
     return <SubscriptionPrompt featureName="Ekonomisk Översikt" />;
   }
-
   if (isLoadingBoards) {
      return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> Laddar budgettavlor...</div>;
   }
-  
   if (boards.length === 0 && !error && !authLoading && !isLoadingBoards) {
     return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Inga Budgettavlor Hittades</AlertTitle>
-        <ShadAlertDescription>Du behöver skapa en budgettavla på Kontrollpanelen först för att se en översikt.</ShadAlertDescription>
+        <ShadAlertDescriptionComponent>Du behöver skapa en budgettavla på Kontrollpanelen först för att se en översikt.</ShadAlertDescriptionComponent>
       </Alert>
     );
   }
-
   if (isLoadingPageData && selectedBoardId && !isLoadingBoards) { 
-    console.log(`[OV_PAGE] Rendering loading state for page data. selectedBoardId: ${selectedBoardId}`);
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> Laddar översiktsdata för vald tavla...</div>;
   }
-  
   if (!selectedBoardId && !isLoadingBoards && !isLoadingPageData && boards.length > 0) {
      return (
       <Alert>
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Välj en Tavla</AlertTitle>
-        <ShadAlertDescription>Välj en budgettavla ovan för att visa dess ekonomiska översikt.</ShadAlertDescription>
+        <ShadAlertDescriptionComponent>Välj en budgettavla ovan för att visa dess ekonomiska översikt.</ShadAlertDescriptionComponent>
       </Alert>
     );
   }
@@ -402,11 +537,12 @@ export default function OverviewPage() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Fel</AlertTitle>
-          <ShadAlertDescription>{error}</ShadAlertDescription>
+          <ShadAlertDescriptionComponent>{error}</ShadAlertDescriptionComponent>
         </Alert>
       )}
 
       {!isLoadingPageData && selectedBoardId && !error && (
+        <>
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader className="p-4 sm:p-6">
@@ -481,9 +617,8 @@ export default function OverviewPage() {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      outerRadius={isMobile ? 60 : 100} // Increased outerRadius for non-mobile
+                      outerRadius={isMobile ? 60 : 100} 
                       labelLine={false}
-                      // label prop removed to hide labels inside pie segments
                     >
                       {expenseDistributionData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -498,6 +633,95 @@ export default function OverviewPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Savings Goals Section */}
+        <Card className="col-span-1 sm:col-span-2 lg:col-span-3">
+            <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="text-xl md:text-2xl">Sparmål</CardTitle>
+                    <CardDescription>Hantera och följ dina sparmål för {boards.find(b => b.id === selectedBoardId)?.name || ""}.</CardDescription>
+                </div>
+                {canEditActiveBoard && (
+                    <Dialog open={isSavingsGoalDialogOpen} onOpenChange={(isOpen) => {
+                        setIsSavingsGoalDialogOpen(isOpen);
+                        if (!isOpen) resetSavingsGoalForm();
+                    }}>
+                        <DialogTrigger asChild>
+                            <Button size="sm" onClick={() => handleOpenSavingsGoalDialog()}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Lägg till Sparmål
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>{editingSavingsGoal ? "Redigera Sparmål" : "Skapa Nytt Sparmål"}</DialogTitle>
+                                {savingsGoalDialogError && (
+                                    <Alert variant="destructive" className="mt-2">
+                                        <AlertCircle className="h-4 w-4" />
+                                        <AlertTitle>Fel</AlertTitle>
+                                        <ShadAlertDescriptionComponent>{savingsGoalDialogError}</ShadAlertDescriptionComponent>
+                                    </Alert>
+                                )}
+                            </DialogHeader>
+                            <form onSubmit={handleSaveSavingsGoal} className="space-y-4 py-4">
+                                <div>
+                                    <Label htmlFor="goalName">Namn på sparmål</Label>
+                                    <Input id="goalName" value={goalName} onChange={e => setGoalName(e.target.value)} placeholder="T.ex. Resa till Japan, Ny Dator" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="goalTargetAmount">Målbelopp (kr)</Label>
+                                    <Input id="goalTargetAmount" type="number" value={goalTargetAmount} onChange={e => setGoalTargetAmount(e.target.value)} placeholder="50000" />
+                                </div>
+                                <div>
+                                    <Label htmlFor="goalCurrentAmount">Nuvarande sparat belopp (kr)</Label>
+                                    <Input id="goalCurrentAmount" type="number" value={goalCurrentAmount} onChange={e => setGoalCurrentAmount(e.target.value)} placeholder="15000" />
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild><Button type="button" variant="outline">Avbryt</Button></DialogClose>
+                                    <Button type="submit">
+                                      {editingSavingsGoal ? "Spara ändringar" : "Skapa Sparmål"}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                )}
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
+                {isLoadingSavingsGoals ? (
+                    <div className="flex justify-center items-center py-8"><Loader2 className="h-6 w-6 animate-spin" /> Laddar sparmål...</div>
+                ) : savingsGoals.length > 0 ? (
+                    savingsGoals.map(goal => {
+                        const progress = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0;
+                        const remaining = goal.targetAmount - goal.currentAmount;
+                        return (
+                            <Card key={goal.id} className="p-4 shadow-sm">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-lg font-semibold truncate">{goal.name}</h4>
+                                        <Progress value={progress} className="h-3 my-2" />
+                                        <div className="text-xs text-muted-foreground flex flex-wrap justify-between gap-x-4 gap-y-1">
+                                            <span>Sparat: {goal.currentAmount.toLocaleString('sv-SE')} kr / {goal.targetAmount.toLocaleString('sv-SE')} kr ({progress.toFixed(0)}%)</span>
+                                            <span className={remaining <=0 ? 'text-accent font-semibold': ''}>
+                                                {remaining > 0 ? `Kvar: ${remaining.toLocaleString('sv-SE')} kr` : "Mål uppnått!"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {canEditActiveBoard && (
+                                        <div className="flex gap-2 mt-2 sm:mt-0 shrink-0">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSavingsGoalDialog(goal)}><Edit3 className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteSavingsGoal(goal.id)}><Trash2 className="h-4 w-4" /></Button>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        );
+                    })
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center py-8">Inga sparmål skapade för denna tavla än. {canEditActiveBoard ? "Klicka på 'Lägg till Sparmål' för att börja!" : ""}</p>
+                )}
+            </CardContent>
+        </Card>
+        </>
       )}
     </div>
   );
