@@ -61,6 +61,15 @@ export default function HjalpPage() {
                   <li>Visualisera inkomster vs. utgifter i ett stapeldiagram.</li>
                   <li>Analysera din utgiftsfördelning per kategori i ett cirkeldiagram.</li>
                 </ul>
+                <h4 className="font-semibold mt-4 mb-2 text-md">Sparmål</h4>
+                <p>Du kan även hantera och följa dina sparmål kopplade till den valda budgettavlan:</p>
+                <ul className="list-disc pl-6 mt-2 space-y-1">
+                  <li><strong>Skapa Sparmål:</strong> Om du har redigeringsbehörighet (ägare eller redaktör) på den valda tavlan, kan du skapa nya sparmål. Ange ett namn för målet, ditt målbelopp och eventuellt hur mycket du redan har sparat.</li>
+                  <li><strong>Följ Framsteg:</strong> För varje sparmål ser du namnet, en progressbar som visar hur långt du kommit, det nuvarande sparade beloppet i förhållande till målbeloppet (både i kronor och procent), samt hur mycket som återstår.</li>
+                  <li><strong>Fyll på Sparmål:</strong> Om du har redigeringsbehörighet kan du klicka på "Fyll på"-knappen (spargrisikonen) vid ett sparmål för att registrera en ny insättning mot det målet.</li>
+                  <li><strong>Redigera & Radera:</strong> Med rätt behörighet kan du redigera befintliga sparmål (ändra namn, målbelopp, eller det totala sparade beloppet direkt) eller radera dem helt.</li>
+                  <li><strong>Kopplade till Tavla:</strong> Sparmål är specifika för den budgettavla de skapas på.</li>
+                </ul>
               </AccordionContent>
             </AccordionItem>
 
@@ -147,3 +156,4 @@ export default function HjalpPage() {
     </div>
   );
 }
+
