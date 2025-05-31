@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BarChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar, Pie, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
@@ -97,6 +97,11 @@ export default function OverviewPage() {
   const [goalTargetAmount, setGoalTargetAmount] = useState('');
   const [goalCurrentAmount, setGoalCurrentAmount] = useState('');
   const [savingsGoalDialogError, setSavingsGoalDialogError] = useState<string | null>(null);
+  
+  const [isAddFundsDialogOpen, setIsAddFundsDialogOpen] = useState(false);
+  const [goalToAddFundsTo, setGoalToAddFundsTo] = useState<SavingsGoal | null>(null);
+  const [depositAmountInput, setDepositAmountInput] = useState('');
+  const [addFundsDialogError, setAddFundsDialogError] = useState<string | null>(null);
 
 
   const [isLoadingBoards, setIsLoadingBoards] = useState(true);
@@ -405,7 +410,7 @@ export default function OverviewPage() {
       return;
     }
     const target = parseFloat(goalTargetAmount);
-    const current = parseFloat(goalCurrentAmount);
+    let current = parseFloat(goalCurrentAmount);
 
     if (goalName.trim() === '' || isNaN(target) || target <= 0 || isNaN(current) || current < 0) {
       setSavingsGoalDialogError("Fyll i namn och giltiga belopp (målbelopp > 0, nuvarande belopp >= 0).");
@@ -415,6 +420,7 @@ export default function OverviewPage() {
       setSavingsGoalDialogError("Nuvarande belopp kan inte överstiga målbeloppet.");
       return;
     }
+
     setSavingsGoalDialogError(null);
 
     const goalPayload: Omit<SavingsGoal, 'id' | 'createdAt'> & { createdAt?: any, boardId: string } = {
@@ -456,6 +462,46 @@ export default function OverviewPage() {
     } catch (err) {
       console.error("Error deleting savings goal:", err);
       toast({ title: "Fel", description: "Kunde inte radera sparmålet.", variant: "destructive" });
+    }
+  };
+
+  const handleOpenAddFundsDialog = (goal: SavingsGoal) => {
+    if (!canEditActiveBoard) {
+      toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att fylla på detta sparmål.", variant: "destructive" });
+      return;
+    }
+    setGoalToAddFundsTo(goal);
+    setDepositAmountInput('');
+    setAddFundsDialogError(null);
+    setIsAddFundsDialogOpen(true);
+  };
+
+  const handleSaveDeposit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedBoardId || !canEditActiveBoard || !goalToAddFundsTo) {
+      setAddFundsDialogError("Ingen tavla vald, otillräcklig behörighet eller inget sparmål valt.");
+      return;
+    }
+    const deposit = parseFloat(depositAmountInput);
+    if (isNaN(deposit) || deposit <= 0) {
+      setAddFundsDialogError("Ange ett giltigt positivt belopp att sätta in.");
+      return;
+    }
+
+    setAddFundsDialogError(null);
+    const newCurrentAmount = Math.min(goalToAddFundsTo.currentAmount + deposit, goalToAddFundsTo.targetAmount);
+
+    try {
+      const goalDocRef = doc(db, 'boards', selectedBoardId, 'savingsGoals', goalToAddFundsTo.id);
+      await updateDoc(goalDocRef, { currentAmount: newCurrentAmount });
+      toast({ title: "Påfyllning Sparad!", description: `${deposit.toLocaleString('sv-SE')} kr har lagts till på "${goalToAddFundsTo.name}".` });
+      setIsAddFundsDialogOpen(false);
+      setGoalToAddFundsTo(null);
+      setDepositAmountInput('');
+    } catch (err) {
+      console.error("Error saving deposit:", err);
+      toast({ title: "Fel", description: "Kunde inte spara insättningen.", variant: "destructive" });
+      setAddFundsDialogError("Ett fel uppstod när insättningen skulle sparas.");
     }
   };
 
@@ -675,6 +721,7 @@ export default function OverviewPage() {
                                     <Label htmlFor="goalCurrentAmount">Nuvarande sparat belopp (kr)</Label>
                                     <Input id="goalCurrentAmount" type="number" value={goalCurrentAmount} onChange={e => setGoalCurrentAmount(e.target.value)} placeholder="15000" />
                                 </div>
+                                
                                 <DialogFooter>
                                     <DialogClose asChild><Button type="button" variant="outline">Avbryt</Button></DialogClose>
                                     <Button type="submit">
@@ -707,7 +754,8 @@ export default function OverviewPage() {
                                         </div>
                                     </div>
                                     {canEditActiveBoard && (
-                                        <div className="flex gap-2 mt-2 sm:mt-0 shrink-0">
+                                        <div className="flex gap-1 sm:gap-2 mt-2 sm:mt-0 shrink-0">
+                                            <Button variant="outline" size="sm" className="h-8 px-2 sm:px-3" onClick={() => handleOpenAddFundsDialog(goal)}><PiggyBank className="mr-0 sm:mr-2 h-4 w-4" /><span className="hidden sm:inline">Fyll på</span></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenSavingsGoalDialog(goal)}><Edit3 className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteSavingsGoal(goal.id)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
@@ -723,6 +771,49 @@ export default function OverviewPage() {
         </Card>
         </>
       )}
+
+      {/* Add Funds Dialog */}
+      <Dialog open={isAddFundsDialogOpen} onOpenChange={(isOpen) => {
+          setIsAddFundsDialogOpen(isOpen);
+          if (!isOpen) {
+              setGoalToAddFundsTo(null);
+              setDepositAmountInput('');
+              setAddFundsDialogError(null);
+          }
+      }}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Fyll på Sparmål: {goalToAddFundsTo?.name}</DialogTitle>
+                  <ShadDialogDescription>
+                      Ange beloppet du vill sätta in på detta sparmål.
+                  </ShadDialogDescription>
+                  {addFundsDialogError && (
+                      <Alert variant="destructive" className="mt-2">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Fel</AlertTitle>
+                          <ShadAlertDescriptionComponent>{addFundsDialogError}</ShadAlertDescriptionComponent>
+                      </Alert>
+                  )}
+              </DialogHeader>
+              <form onSubmit={handleSaveDeposit} className="space-y-4 py-4">
+                  <div>
+                      <Label htmlFor="depositAmount">Belopp att sätta in (kr)</Label>
+                      <Input 
+                        id="depositAmount" 
+                        type="number" 
+                        value={depositAmountInput} 
+                        onChange={e => setDepositAmountInput(e.target.value)} 
+                        placeholder="1000" 
+                        autoFocus
+                      />
+                  </div>
+                  <DialogFooter>
+                      <DialogClose asChild><Button type="button" variant="outline">Avbryt</Button></DialogClose>
+                      <Button type="submit">Spara Insättning</Button>
+                  </DialogFooter>
+              </form>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }
