@@ -78,7 +78,6 @@ export default function AccountSettingsPage() {
     if (currentUser) {
       setDisplayName(currentUser.displayName || '');
       setEmail(currentUser.email || '');
-      // Prioritize Firestore photoURL if available, then Auth, then null
       const fetchFirestoreProfileData = async () => {
         if (!currentUser.uid) return;
         const userDocRef = doc(db, 'users', currentUser.uid);
@@ -93,7 +92,7 @@ export default function AccountSettingsPage() {
           }
         } catch (error) {
             console.error("Error fetching user data from Firestore:", error);
-            setImagePreviewUrl(currentUser.photoURL || null); // Fallback to auth URL
+            setImagePreviewUrl(currentUser.photoURL || null); 
         }
       };
       fetchFirestoreProfileData();
@@ -117,27 +116,35 @@ const handleProfileUpdate = async (e: FormEvent) => {
     setIsLoadingProfile(true);
     setProfileError(null);
 
+    let newImageUploadedSuccessfully = false;
+    let finalNewPhotoURL: string | null = null;
+    let changesWereMade = false;
+    let operationSucceeded = false;
+
     try {
         if (!currentUser || !auth.currentUser) {
             throw new Error("Autentiseringsfel. Användare ej tillgänglig.");
         }
+        const user = auth.currentUser; 
 
-        const currentAuthDisplayName = auth.currentUser.displayName || '';
-        const displayNameChanged = displayName !== currentAuthDisplayName;
-        let newImageUploadedAndSaved = false;
-        let finalPhotoURLForAuthAndFirestore: string | null = auth.currentUser.photoURL || null;
+        const initialAuthDisplayName = user.displayName || '';
+        const initialPhotoURL = user.photoURL || null;
+        finalNewPhotoURL = initialPhotoURL; // Start with the current one
 
         // 1. Handle new image upload if a file is selected
         if (selectedImageFile) {
-            const filePath = `profileImages/${auth.currentUser.uid}/profilePicture.jpg`;
+            const filePath = `profileImages/${user.uid}/profilePicture.jpg`;
             const imageStorageRef = storageRef(storage, filePath);
             await uploadBytes(imageStorageRef, selectedImageFile);
-            finalPhotoURLForAuthAndFirestore = await getDownloadURL(imageStorageRef);
-            newImageUploadedAndSaved = true;
+            finalNewPhotoURL = await getDownloadURL(imageStorageRef);
+            newImageUploadedSuccessfully = true;
         }
 
-        // 2. Prepare and apply updates if name changed or new image was uploaded
-        if (displayNameChanged || newImageUploadedAndSaved) {
+        const displayNameChanged = displayName !== initialAuthDisplayName;
+        const photoURLChanged = finalNewPhotoURL !== initialPhotoURL;
+
+        if (displayNameChanged || photoURLChanged) {
+            changesWereMade = true;
             const authUpdates: { displayName?: string; photoURL?: string | null } = {};
             const firestoreUpdates: any = { updatedAt: serverTimestamp() };
 
@@ -145,63 +152,56 @@ const handleProfileUpdate = async (e: FormEvent) => {
                 authUpdates.displayName = displayName;
                 firestoreUpdates.displayName = displayName;
             }
-            if (newImageUploadedAndSaved) { 
-                authUpdates.photoURL = finalPhotoURLForAuthAndFirestore;
-                firestoreUpdates.photoURL = finalPhotoURLForAuthAndFirestore;
+            if (photoURLChanged) {
+                authUpdates.photoURL = finalNewPhotoURL;
+                firestoreUpdates.photoURL = finalNewPhotoURL;
             }
 
             if (Object.keys(authUpdates).length > 0) {
-                await updateFirebaseAuthProfile(auth.currentUser, authUpdates);
+                await updateFirebaseAuthProfile(user, authUpdates);
             }
 
-            const userDocRef = doc(db, 'users', auth.currentUser.uid);
-             // Ensure email is part of update to avoid removing it if doc is new or email field is missing
-            if (!firestoreUpdates.email && auth.currentUser.email) {
+            const userDocRef = doc(db, 'users', user.uid);
+            if (!firestoreUpdates.email && user.email) {
                 const userSnap = await getDoc(userDocRef);
                 if (!userSnap.exists() || !userSnap.data()?.email) {
-                    firestoreUpdates.email = auth.currentUser.email;
+                    firestoreUpdates.email = user.email;
                 }
             }
             await setDoc(userDocRef, firestoreUpdates, { merge: true });
-            
-            await refreshUserData(); 
+        }
+        operationSucceeded = true;
+
+    } catch (error: any) {
+        console.error("PROFILE UPDATE ERROR:", error);
+        let userFriendlyError = "Kunde inte uppdatera profilen. ";
+        if (error.code) {
+            switch (error.code) {
+                case 'storage/unauthorized': userFriendlyError += "Du har inte behörighet att ladda upp bilden. Kontrollera Firebase Storage-reglerna."; break;
+                case 'storage/canceled': userFriendlyError += "Bilduppladdningen avbröts."; break;
+                case 'storage/unknown': userFriendlyError += "Ett okänt lagringsfel uppstod."; break;
+                case 'auth/requires-recent-login': userFriendlyError += "Denna åtgärd kräver en färsk inloggning. Logga ut och in igen."; break;
+                default: userFriendlyError += `Felkod: ${error.code}. ${error.message || ''}`;
+            }
+        } else { userFriendlyError += error.message || "Ett okänt fel inträffade."; }
+        setProfileError(userFriendlyError);
+        toast({ title: "Fel vid Profiluppdatering", description: userFriendlyError, variant: "destructive", duration: 7000 });
+        operationSucceeded = false;
+    } finally {
+        setIsLoadingProfile(false); // Reset loading state for the button
+    }
+
+    if (operationSucceeded) {
+        if (changesWereMade) {
+            await refreshUserData(); // Refresh global user data
             toast({ title: "Profil Uppdaterad", description: "Din profil har sparats." });
-            
-            if (newImageUploadedAndSaved) {
+            if (newImageUploadedSuccessfully) {
                 setSelectedImageFile(null); 
-                setImagePreviewUrl(finalPhotoURLForAuthAndFirestore); 
+                setImagePreviewUrl(finalNewPhotoURL); 
             }
         } else {
             toast({ title: "Inga Ändringar", description: "Inga ändringar att spara." });
         }
-
-    } catch (error: any) {
-        console.error("PROFILE UPDATE ERROR:", error, error.code, error.message);
-        let userFriendlyError = "Kunde inte uppdatera profilen. ";
-        if (error.code) {
-            switch (error.code) {
-                case 'storage/unauthorized':
-                    userFriendlyError += "Du har inte behörighet att ladda upp bilden. Kontrollera Firebase Storage-reglerna.";
-                    break;
-                case 'storage/canceled':
-                    userFriendlyError += "Bilduppladdningen avbröts.";
-                    break;
-                case 'storage/unknown':
-                    userFriendlyError += "Ett okänt lagringsfel uppstod. Kontrollera nätverksanslutningen.";
-                    break;
-                case 'auth/requires-recent-login':
-                    userFriendlyError += "Denna åtgärd kräver en färsk inloggning. Logga ut och in igen.";
-                    break;
-                default:
-                    userFriendlyError += `Felkod: ${error.code}. ${error.message || ''}`;
-            }
-        } else {
-            userFriendlyError += error.message || "Ett okänt fel inträffade.";
-        }
-        setProfileError(userFriendlyError);
-        toast({ title: "Fel vid Profiluppdatering", description: userFriendlyError, variant: "destructive", duration: 7000 });
-    } finally {
-        setIsLoadingProfile(false);
     }
 };
 
@@ -215,29 +215,26 @@ const handleRemoveProfileImage = async () => {
     const confirmRemoval = confirm("Är du säker på att du vill ta bort din profilbild permanent?");
     if (!confirmRemoval) return;
 
-    setIsLoadingProfile(true); // Use the same loading state
+    setIsLoadingProfile(true); 
     setProfileError(null);
     try {
-        // 1. Delete from Storage if a photoURL exists (either in auth or Firestore, check auth first)
-        const photoUrlToCheck = auth.currentUser.photoURL || (imagePreviewUrl !== null && imagePreviewUrl !== undefined && !imagePreviewUrl.startsWith('data:')); // Check if preview is a persisted URL
+        const user = auth.currentUser;
+        const photoUrlToCheck = user.photoURL || (imagePreviewUrl !== null && imagePreviewUrl !== undefined && !imagePreviewUrl.startsWith('data:'));
 
-        if (photoUrlToCheck) { // Only attempt delete if there's a URL that's not a data URI
-            const filePath = `profileImages/${auth.currentUser.uid}/profilePicture.jpg`;
+        if (photoUrlToCheck) { 
+            const filePath = `profileImages/${user.uid}/profilePicture.jpg`;
             const imageStorageRef = storageRef(storage, filePath);
             try {
                 await deleteStorageObject(imageStorageRef);
             } catch (storageError: any) {
                 if (storageError.code !== 'storage/object-not-found') {
-                    console.warn("Could not delete profile image from Storage, it might not exist or other error:", storageError);
+                    console.warn("Could not delete profile image from Storage:", storageError);
                 }
             }
         }
 
-        // 2. Update Firebase Auth
-        await updateFirebaseAuthProfile(auth.currentUser, { photoURL: null });
-
-        // 3. Update Firestore
-        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        await updateFirebaseAuthProfile(user, { photoURL: null });
+        const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, { photoURL: null, updatedAt: serverTimestamp() });
 
         setImagePreviewUrl(null); 
@@ -256,7 +253,7 @@ const handleRemoveProfileImage = async () => {
         setProfileError(userFriendlyError);
         toast({ title: "Fel", description: userFriendlyError, variant: "destructive" });
     } finally {
-        setIsLoadingProfile(false); // Use the same loading state
+        setIsLoadingProfile(false); 
     }
 };
 
@@ -337,7 +334,7 @@ const handleRemoveProfileImage = async () => {
         
         await firestoreBatch.commit();
         
-        if (auth.currentUser?.photoURL) { // Check if there's a photoURL before attempting deletion
+        if (auth.currentUser?.photoURL) { 
             const filePath = `profileImages/${uid}/profilePicture.jpg`;
             const imageStorageRef = storageRef(storage, filePath);
             try {
@@ -590,7 +587,7 @@ const handleRemoveProfileImage = async () => {
                     </DialogContent>
                 </Dialog>
               </div>
-               {imagePreviewUrl && ( // Show this button only if there's an image (preview or persisted)
+               {imagePreviewUrl && ( 
                 <Button variant="destructive" type="button" onClick={handleRemoveProfileImage} className="w-full sm:w-auto" disabled={isLoadingProfile}>
                   {isLoadingProfile && imagePreviewUrl === null ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                   Ta bort profilbild
