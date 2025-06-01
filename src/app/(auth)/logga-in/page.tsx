@@ -11,7 +11,6 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription as ShadAlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
-// Removed: import { useTranslation } from '@/hooks/useTranslation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -20,7 +19,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const { logIn, currentUser } = useAuth();
   const router = useRouter();
-  // Removed: const { t } = useTranslation();
 
   useEffect(() => {
     if (currentUser) {
@@ -54,7 +52,7 @@ export default function LoginPage() {
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      document.title = 'Logga in - Ekonova'; // Reverted
+      document.title = 'Logga in - Ekonova';
     }
   }, []);
 
@@ -90,7 +88,7 @@ export default function LoginPage() {
             <Input id="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} />
           </div>
           <div className="flex items-center">
-            <Link href="#" className="ml-auto inline-block text-sm underline text-muted-foreground hover:text-primary">
+            <Link href="/aterstall-losenord" className="ml-auto inline-block text-sm underline text-muted-foreground hover:text-primary">
               Glömt lösenord?
             </Link>
           </div>

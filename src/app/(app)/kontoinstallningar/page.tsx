@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, ShieldAlert, Trash2, Loader2, AlertCircle, BadgeCheck, ShieldX, XCircle, Copy } from 'lucide-react';
+import { Upload, ShieldAlert, Trash2, Loader2, AlertCircle, BadgeCheck, ShieldX, XCircle, Copy, ExternalLink } from 'lucide-react'; // Added ExternalLink
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,10 +23,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import React, { useState, useEffect, FormEvent } from 'react';
 import { updateProfile as updateFirebaseAuthProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, updateDoc, getDoc, setDoc, serverTimestamp, Timestamp, deleteDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase'; // Ensure auth is imported from firebase lib
+import { auth, db } from '@/lib/firebase'; 
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import SubscriptionPrompt from '@/components/shared/subscription-prompt';
+import Link from 'next/link'; // Added Link for "Glömt lösenord"
 
 
 export default function AccountSettingsPage() {
@@ -80,8 +81,8 @@ export default function AccountSettingsPage() {
         { displayName, email: currentUser.email, updatedAt: serverTimestamp() },
         { merge: true }
       );
-      await currentUser.reload(); // Reload to get updated profile info
-      await refreshUserData(); // Refresh context data
+      await currentUser.reload(); 
+      await refreshUserData(); 
       toast({ title: "Profil Uppdaterad", description: "Ditt namn har sparats." });
     } catch (error: any) {
       console.error("Profile update error:", error);
@@ -146,11 +147,9 @@ export default function AccountSettingsPage() {
 
         const firestoreBatch = writeBatch(db);
 
-        // 1. Delete user document from /users collection
         const userDocRef = doc(db, 'users', uid);
         firestoreBatch.delete(userDocRef);
 
-        // 2. Attempt to delete boards owned by the user
         const memberBoardsQuery = query(collection(db, 'boards'), where('members', 'array-contains', uid));
         const memberBoardsSnapshot = await getDocs(memberBoardsQuery);
         
@@ -417,12 +416,16 @@ export default function AccountSettingsPage() {
               <Label htmlFor="confirmNewPassword">Bekräfta nytt lösenord</Label>
               <Input id="confirmNewPassword" type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} required/>
             </div>
-            <Button type="submit" disabled={isLoadingPassword} className="w-full sm:w-auto">
-              {isLoadingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Byt lösenord
-            </Button>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <Button type="submit" disabled={isLoadingPassword} className="w-full sm:w-auto">
+                {isLoadingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Byt lösenord
+                </Button>
+                <Link href="/aterstall-losenord" className="text-sm text-muted-foreground hover:text-primary hover:underline text-center sm:text-right">
+                    Glömt lösenord? <ExternalLink className="inline h-3 w-3 ml-0.5"/>
+                </Link>
+            </div>
           </form>
-          <Button variant="link" className="p-0 h-auto text-sm text-muted-foreground hover:text-primary" disabled>Glömt lösenord? (ej implementerat)</Button>
         </CardContent>
       </Card>
 
@@ -504,5 +507,3 @@ export default function AccountSettingsPage() {
     </div>
   );
 }
-
-    

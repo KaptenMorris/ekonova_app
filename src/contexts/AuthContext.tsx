@@ -2,7 +2,6 @@
 "use client";
 
 import type { ReactNode, FC } from 'react';
-// Changed import: Explicitly import React for React.useState
 import React, { createContext, useContext, useEffect, useCallback } from 'react';
 import {
   Auth,
@@ -10,10 +9,11 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail // Importera sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore'; // Added setDoc
+import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
@@ -25,13 +25,13 @@ interface SubscriptionInfo {
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
-  // isAdmin: boolean | null; // Removed isAdmin
   subscription: SubscriptionInfo | null;
   mainBoardId: string | null;
   boardOrder: string[] | null;
-  signUp: (email: string, password: string, name: string) => Promise<any>; // Added name to signUp
+  signUp: (email: string, password: string, name: string) => Promise<any>;
   logIn: (email: string, password: string) => Promise<any>;
   logOut: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>; // Ny metod
   refreshUserData: () => Promise<void>;
 }
 
@@ -52,7 +52,6 @@ interface AuthProviderProps {
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [loading, setLoading] = React.useState(true);
-  // const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null); // Removed isAdmin state
   const [subscription, setSubscription] = React.useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = React.useState<string | null>(null);
   const [boardOrder, setBoardOrder] = React.useState<string[] | null>(null);
@@ -70,7 +69,6 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          // setIsAdmin(userData.isAdmin === true); // Removed isAdmin
           const expiresAtTimestamp = userData.subscriptionExpiresAt as Timestamp | undefined;
           setSubscription({
             status: userData.subscriptionStatus || 'inactive',
@@ -79,37 +77,31 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
 
-          // Ensure displayName is in Firestore if not already set from auth profile update
           if (user.displayName && (!userData.displayName || userData.displayName !== user.displayName)) {
             await updateDoc(userDocRef, { displayName: user.displayName });
           }
         } else {
-          // If user doc doesn't exist, create it
           await setDoc(userDocRef, {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName || '',
             createdAt: Timestamp.now(),
-            // isAdmin: false, // Removed isAdmin
             subscriptionStatus: 'inactive',
             subscriptionExpiresAt: null,
             mainBoardId: null,
             boardOrder: [],
           });
-          // setIsAdmin(false); // Removed isAdmin
           setSubscription({ status: 'inactive', expiresAt: null });
           setMainBoardId(null);
           setBoardOrder(null);
         }
       } catch (error) {
         console.error("Error fetching or creating user data:", error);
-        // setIsAdmin(false); // Removed isAdmin
         setSubscription({ status: 'inactive', expiresAt: null });
         setMainBoardId(null);
         setBoardOrder(null);
       }
     } else {
-      // setIsAdmin(null); // Removed isAdmin
       setSubscription(null);
       setMainBoardId(null);
       setBoardOrder(null);
@@ -118,14 +110,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!hasMounted) {
-      return; // Don't run onAuthStateChanged until the component has mounted.
+      return; 
     }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
-        // setIsAdmin(null); // Removed isAdmin
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -146,14 +137,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const signUp = async (email: string, password: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
-      // User created in Auth, now create corresponding Firestore document
       const userDocRef = doc(db, 'users', userCredential.user.uid);
       await setDoc(userDocRef, {
         uid: userCredential.user.uid,
         email: userCredential.user.email,
         displayName: name,
         createdAt: Timestamp.now(),
-        // isAdmin: false, // Removed isAdmin
         subscriptionStatus: 'inactive',
         subscriptionExpiresAt: null,
         mainBoardId: null,
@@ -172,16 +161,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     try {
       await signOut(auth);
       setCurrentUser(null); 
-      // setIsAdmin(null); // Removed isAdmin    
       router.push('/logga-in');
     } catch (error) {
       console.error("Error logging out:", error);
     }
   };
 
+  const sendPasswordReset = async (email: string) => {
+    return sendPasswordResetEmail(auth, email);
+  };
 
   if (!hasMounted) {
-    // On the server, and on the client before the first useEffect for hasMounted runs
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -200,16 +190,15 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const value = {
     currentUser,
     loading,
-    // isAdmin, // Removed isAdmin
     subscription,
     mainBoardId,
     boardOrder,
     signUp,
     logIn,
     logOut,
+    sendPasswordReset, // Lägg till metoden i context value
     refreshUserData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
