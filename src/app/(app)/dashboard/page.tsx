@@ -38,7 +38,6 @@ import {
 } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-// Removed: import { useTranslation } from '@/hooks/useTranslation';
 
 // Lucide icons map for dynamic rendering
 const iconComponents: { [key: string]: React.ElementType } = {
@@ -125,7 +124,6 @@ type UserRole = 'owner' | 'editor' | 'viewer' | 'none';
 export default function DashboardPage() {
   const { toast } = useToast();
   const { currentUser, mainBoardId, refreshUserData, boardOrder: userBoardOrderFromContext } = useAuth();
-  // Removed: const { t } = useTranslation();
 
   const [boards, setBoards] = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
@@ -157,6 +155,8 @@ export default function DashboardPage() {
   const [newCategoryType, setNewCategoryType] = useState<'income' | 'expense' | undefined>(undefined);
   const [newCategoryIconName, setNewCategoryIconName] = useState<string | undefined>(iconOptions.find(opt => opt.value === 'Shapes')?.value);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
 
   const [isMemberManagementDialogOpen, setIsMemberManagementDialogOpen] = useState(false);
   const [boardToManageMembersFor, setBoardToManageMembersFor] = useState<Board | null>(null);
@@ -211,7 +211,7 @@ export default function DashboardPage() {
       });
       
       unorderedBoards.push(...Array.from(fetchedBoardsMap.values()));
-      unorderedBoards.sort((a, b) => a.name.localeCompare(b.name)); // Sort unordered boards by name
+      unorderedBoards.sort((a, b) => a.name.localeCompare(b.name)); 
 
 
       const finalSortedBoards = [...orderedBoards, ...unorderedBoards];
@@ -378,55 +378,33 @@ export default function DashboardPage() {
   };
 
   const handleDeleteBoard = async (boardId: string) => {
-    console.log(`[BOARD_DELETE] Attempting to delete board: ${boardId}`);
     if (!currentUser?.uid) {
-      console.log("[BOARD_DELETE] No current user UID, exiting.");
       toast({ title: "Fel", description: "Ingen användare inloggad.", variant: "destructive" });
       return;
     }
     const boardToDelete = boards.find(b => b.id === boardId);
-    console.log("[BOARD_DELETE] boardToDelete object:", boardToDelete);
-
     if (!boardToDelete) {
-      console.log("[BOARD_DELETE] Board not found in local state, exiting.");
       toast({ title: "Fel", description: "Tavlan kunde inte hittas.", variant: "destructive" });
       return;
     }
-
     if (boardToDelete.ownerUid !== currentUser.uid) {
-        console.log(`[BOARD_DELETE] Permission denied: User ${currentUser.uid} is not owner ${boardToDelete.ownerUid}`);
         toast({ title: "Åtkomst Nekad", description: "Endast ägaren kan radera denna tavla.", variant: "destructive" });
         return;
     }
-    
     const confirmMessage = `Är du säker på att du vill radera tavlan "${boardToDelete.name}"? Viktigt: Data inuti tavlan (transaktioner, kategorier, räkningar) raderas INTE automatiskt av denna åtgärd och blir kvar i databasen. För fullständig radering krävs en Firebase Function.`;
+    if (!confirm(confirmMessage)) return;
 
-    if (!confirm(confirmMessage)) {
-      console.log("[BOARD_DELETE] Deletion cancelled by user.");
-      return;
-    }
-
-    console.log("[BOARD_DELETE] User confirmed deletion. Setting isDeletingBoardId.");
     setIsDeletingBoardId(boardId);
     try {
-      console.log(`[BOARD_DELETE] Deleting Firestore document: boards/${boardId}`);
       await deleteDoc(doc(db, 'boards', boardId));
-      console.log(`[BOARD_DELETE] Firestore document boards/${boardId} deleted.`);
-
       const userDocRef = doc(db, 'users', currentUser.uid);
-      console.log(`[BOARD_DELETE] Updating user document: users/${currentUser.uid} to remove boardOrder and potentially mainBoardId.`);
       await updateDoc(userDocRef, {
           boardOrder: arrayRemove(boardId),
           ...(mainBoardId === boardId && { mainBoardId: null })
       });
-      console.log("[BOARD_DELETE] User document updated. Refreshing user data.");
       await refreshUserData();
-
       toast({ title: "Tavla Raderad", description: `Tavlan "${boardToDelete.name}" har raderats. Observera: Data inuti tavlan (transaktioner, kategorier, räkningar) har INTE raderats automatiskt och blir kvar i databasen. Detta kräver en Firebase Function.`, duration: 10000 });
-      if (activeBoardId === boardId) {
-        console.log("[BOARD_DELETE] Active board was deleted, resetting activeBoardId.");
-        setActiveBoardId(null); 
-      }
+      if (activeBoardId === boardId) setActiveBoardId(null); 
     } catch (error: any) {
       console.error("[BOARD_DELETE] Error deleting board:", error);
       let description = "Kunde inte radera tavlan. Försök igen.";
@@ -435,7 +413,6 @@ export default function DashboardPage() {
       }
       toast({ title: "Fel vid radering", description, variant: "destructive", duration: 10000 });
     } finally {
-      console.log("[BOARD_DELETE] Resetting isDeletingBoardId.");
       setIsDeletingBoardId(null);
     }
   };
@@ -598,36 +575,25 @@ export default function DashboardPage() {
   };
 
   const handleRemoveListedMember = async (boardId: string, memberUid: string, memberDisplayName: string) => {
-    console.log(`[MEMBER_MGMT] Attempting to remove member (UID: ${memberUid}, Display: '${memberDisplayName}') from board (ID: ${boardId}) by user (UID: ${currentUser?.uid})`);
     if (!currentUser || !currentUser.uid || !boardId || !memberUid) {
-        console.error("[MEMBER_MGMT] Pre-condition failed for handleRemoveListedMember: Missing currentUser, boardId, or memberUid.", { currentUser, boardId, memberUid });
         toast({ title: "Fel", description: "Nödvändig information saknas för att ta bort medlem.", variant: "destructive"});
         return;
     }
 
     const currentBoardForAction = boards.find(b => b.id === boardId);
     if (!currentBoardForAction) {
-        console.error(`[MEMBER_MGMT] Board (ID: '${boardId}') not found in 'boards' state for removal action. Current boards state:`, boards);
         toast({ title: "Fel", description: "Tavlan kunde inte hittas i den lokala listan.", variant: "destructive"});
         return;
     }
     
-    const userRoleOnThisBoard = getUserRole(currentBoardForAction);
-    console.log(`[MEMBER_MGMT] Current user's role on this board (calculated): ${userRoleOnThisBoard}`);
-    console.log(`[MEMBER_MGMT] Board data at time of removal attempt (from 'boards' state):`, JSON.stringify(currentBoardForAction));
-    
+    const userRoleOnThisBoard = getUserRole(currentBoardForAction);    
     if (userRoleOnThisBoard !== 'owner' && userRoleOnThisBoard !== 'editor') {
-        console.warn(`[MEMBER_MGMT] User (UID: ${currentUser.uid}) with role '${userRoleOnThisBoard}' attempted to remove member (UID: ${memberUid}) from board (ID: ${boardId}). Action DENIED (client-side role check).`);
         toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att ta bort medlemmar från denna tavla.", variant: "destructive" });
         return;
     }
     
     const confirmMessage = `Är du säker på att du vill ta bort ${memberDisplayName} från tavlan "${currentBoardForAction?.name}"?`;
-
-    if (!confirm(confirmMessage)) {
-        console.log("[MEMBER_MGMT] User cancelled member removal.");
-        return;
-    }
+    if (!confirm(confirmMessage)) return;
 
     setIsProcessingMemberAction(true);
     try {
@@ -636,17 +602,9 @@ export default function DashboardPage() {
         members: arrayRemove(memberUid),
         [`memberRoles.${memberUid}`]: FieldValue.delete() 
       };
-
-      console.log("[MEMBER_MGMT] Firestore update payload for member removal:", JSON.stringify(updates));
-      console.log(`[MEMBER_MGMT] Attempting updateDoc for board: ${boardDocRef.path}`);
       await updateDoc(boardDocRef, updates);
-      console.log(`[MEMBER_MGMT] Successfully sent updateDoc to remove member ${memberUid} from board ${boardId}.`);
-
-
       toast({ title: "Medlem Borttagen", description: `${memberDisplayName} har tagits bort från tavlan.`});
-
       setListedMembers(prevMembers => prevMembers.filter(m => m.uid !== memberUid));
-
       if (boardToManageMembersFor && boardToManageMembersFor.id === boardId) {
            const updatedBoardSnap = await getDoc(boardDocRef); 
             if (updatedBoardSnap.exists()) {
@@ -654,7 +612,6 @@ export default function DashboardPage() {
                 setBoardToManageMembersFor(updatedBoardData); 
                 await fetchBoardMemberDetails(updatedBoardData.id);
             } else {
-                console.warn(`[MEMBER_MGMT] Board ${boardId} not found after member removal attempt. Closing dialog or resetting view.`);
                 setIsMemberManagementDialogOpen(false);
                 setBoardToManageMembersFor(null);
             }
@@ -673,35 +630,68 @@ export default function DashboardPage() {
     }
   };
 
+  const resetCategoryForm = () => {
+    setNewCategoryName('');
+    setNewCategoryType(undefined);
+    setNewCategoryIconName(iconOptions.find(opt => opt.value === 'Shapes')?.value);
+    setEditingCategory(null);
+  };
+  
+  const handleOpenCategoryDialog = (category?: Category) => {
+    if (!canEditActiveBoard) {
+      toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att hantera kategorier på denna tavla.", variant: "destructive" });
+      return;
+    }
+    if (category) {
+      setEditingCategory(category);
+      setNewCategoryName(category.name);
+      setNewCategoryType(category.type);
+      setNewCategoryIconName(category.iconName || iconOptions.find(opt => opt.value === 'Shapes')?.value);
+    } else {
+      resetCategoryForm();
+    }
+    setIsCategoryDialogOpen(true);
+  };
 
-  const handleAddCategory = async () => {
+  const handleSaveCategory = async () => {
     if (!currentUser?.uid || !activeBoardId || !activeBoardData || !canEditActiveBoard) {
       toast({ title: "Fel", description: "Ingen aktiv tavla vald eller otillräcklig behörighet.", variant: "destructive" });
       return;
     }
-    if (newCategoryName.trim() === '' || !newCategoryType || !newCategoryIconName) {
-      toast({ title: "Fel", description: "Kategorinamn, typ och ikon måste anges.", variant: "destructive" });
+    if (newCategoryName.trim() === '' || !newCategoryIconName || (!editingCategory && !newCategoryType)) {
+      toast({ title: "Fel", description: "Kategorinamn, typ (för ny) och ikon måste anges.", variant: "destructive" });
       return;
     }
+    
+    const categoryPayload: Partial<Omit<Category, 'id'>> & { type?: 'income' | 'expense' } = {
+      name: newCategoryName.trim(),
+      iconName: newCategoryIconName,
+    };
+
     try {
       const categoriesCollectionRef = collection(db, 'boards', activeBoardId, 'categories');
-      await addDoc(categoriesCollectionRef, {
-        name: newCategoryName,
-        type: newCategoryType,
-        iconName: newCategoryIconName
-      });
-      toast({ title: "Kategori Skapad", description: `Kategorin "${newCategoryName}" har lagts till.` });
-      setNewCategoryName('');
-      setNewCategoryType(undefined);
-      setNewCategoryIconName(iconOptions.find(opt => opt.value === 'Shapes')?.value);
+      if (editingCategory) {
+        // Type is not changed on edit
+        await updateDoc(doc(categoriesCollectionRef, editingCategory.id), categoryPayload);
+        toast({ title: "Kategori Uppdaterad", description: `Kategorin "${newCategoryName}" har uppdaterats.` });
+      } else {
+        if (!newCategoryType) { // Should be caught by earlier check, but for safety
+          toast({ title: "Fel", description: "Kategorityp måste anges för ny kategori.", variant: "destructive" });
+          return;
+        }
+        categoryPayload.type = newCategoryType;
+        await addDoc(categoriesCollectionRef, categoryPayload);
+        toast({ title: "Kategori Skapad", description: `Kategorin "${newCategoryName}" har lagts till.` });
+      }
+      resetCategoryForm();
       setIsCategoryDialogOpen(false);
     } catch (error: any) {
-      console.error("Error adding category:", error);
-      let description = "Kunde inte skapa kategorin.";
+      console.error("Error saving category:", error);
+      let description = editingCategory ? "Kunde inte uppdatera kategorin." : "Kunde inte skapa kategorin.";
       if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-        description = "Åtkomst nekad när kategori skulle skapas. Kontrollera dina Firestore-säkerhetsregler. Fullständigt fel: " + error.message;
+        description = "Åtkomst nekad. Kontrollera dina Firestore-säkerhetsregler.";
       }
-      toast({ title: "Fel vid skapande av kategori", description, variant: "destructive", duration: 10000 });
+      toast({ title: editingCategory ? "Fel vid Uppdatering" : "Fel vid Skapande", description, variant: "destructive" });
     }
   };
 
@@ -711,7 +701,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Check if category is used by transactions
     const transactionsRef = collection(db, 'boards', activeBoardId, 'transactions');
     const transQuery = query(transactionsRef, where("category", "==", categoryId), limit(1));
     const transSnapshot = await getDocs(transQuery);
@@ -726,7 +715,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // Check if category is used by bills
     const billsRef = collection(db, 'boards', activeBoardId, 'bills');
     const billsQuery = query(billsRef, where("category", "==", categoryId), limit(1));
     const billsSnapshot = await getDocs(billsQuery);
@@ -1074,11 +1062,8 @@ export default function DashboardPage() {
                                           size="icon"
                                           className="h-8 w-8 text-destructive hover:text-destructive"
                                           onClick={() => {
-                                            console.log(`[MEMBER_MGMT_UI] Remove button clicked for UID: ${member.uid} on board: ${boardToManageMembersFor?.id}`);
                                             if (boardToManageMembersFor) { 
                                                 handleRemoveListedMember(boardToManageMembersFor.id, member.uid, member.displayName);
-                                            } else {
-                                               console.error("[MEMBER_MGMT_UI] boardToManageMembersFor is null when trying to remove member.");
                                             }
                                           }}
                                           disabled={isProcessingMemberAction || getUserRole(boardToManageMembersFor) !== 'owner' && getUserRole(boardToManageMembersFor) !== 'editor'}
@@ -1281,18 +1266,13 @@ export default function DashboardPage() {
                       {activeBoardData.categories.filter(cat => cat.type === 'income').map(cat => (
                         <li key={cat.id} className="flex items-center justify-between text-sm p-3 border rounded-md shadow-sm hover:bg-muted/50 transition-colors">
                           <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1 shrink-0">
                             <span className="font-semibold text-accent">+ {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
                             {canEditActiveBoard && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                                aria-label={`Radera kategori ${cat.name}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenCategoryDialog(cat)} aria-label={`Redigera kategori ${cat.name}`}><Edit3 className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(cat.id, cat.name)} aria-label={`Radera kategori ${cat.name}`}><Trash2 className="h-4 w-4" /></Button>
+                              </>
                             )}
                           </div>
                         </li>
@@ -1307,18 +1287,13 @@ export default function DashboardPage() {
                       {activeBoardData.categories.filter(cat => cat.type === 'expense').map(cat => (
                         <li key={cat.id} className="flex items-center justify-between text-sm p-3 border rounded-md shadow-sm hover:bg-muted/50 transition-colors">
                            <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
-                           <div className="flex items-center gap-2 shrink-0">
+                           <div className="flex items-center gap-1 shrink-0">
                             <span className="font-semibold text-destructive">- {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
                             {canEditActiveBoard && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                                aria-label={`Radera kategori ${cat.name}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenCategoryDialog(cat)} aria-label={`Redigera kategori ${cat.name}`}><Edit3 className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(cat.id, cat.name)} aria-label={`Radera kategori ${cat.name}`}><Trash2 className="h-4 w-4" /></Button>
+                              </>
                             )}
                           </div>
                         </li>
@@ -1347,22 +1322,32 @@ export default function DashboardPage() {
           <PlusCircle className="mr-2 h-4 w-4" /> Lägg till Ny Transaktion
         </Button>
 
-        <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+        <Dialog open={isCategoryDialogOpen} onOpenChange={(isOpen) => {
+            setIsCategoryDialogOpen(isOpen);
+            if (!isOpen) resetCategoryForm();
+          }}
+        >
           <DialogTrigger asChild>
-            <Button variant="outline" className="flex-1" disabled={!activeBoardId  || isLoadingBoardData || !canEditActiveBoard}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Ny Kategori
+            <Button variant="outline" className="flex-1" disabled={!activeBoardId  || isLoadingBoardData || !canEditActiveBoard} onClick={() => handleOpenCategoryDialog()}>
+              <PlusCircle className="mr-2 h-4 w-4" /> {editingCategory ? 'Redigera Kategori' : 'Ny Kategori'}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Skapa Ny Kategori</DialogTitle>
-              <DialogDescription>Ange namn, typ och ikon för din nya kategori.</DialogDescription>
+              <DialogTitle>{editingCategory ? 'Redigera Kategori' : 'Skapa Ny Kategori'}</DialogTitle>
+              <DialogDescription>
+                {editingCategory ? `Redigera namn och ikon för kategorin "${editingCategory.name}". Typen kan inte ändras.` : 'Ange namn, typ och ikon för din nya kategori.'}
+              </DialogDescription>
             </DialogHeader>
              <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="catName" className="text-right">Namn</Label><Input id="catName" placeholder="T.ex. Lön, Matvaror" className="col-span-3" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} /></div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="catType" className="text-right">Typ</Label>
-                 <Select value={newCategoryType} onValueChange={(value) => setNewCategoryType(value as 'income' | 'expense')}>
+                 <Select 
+                    value={newCategoryType} 
+                    onValueChange={(value) => setNewCategoryType(value as 'income' | 'expense')}
+                    disabled={!!editingCategory} 
+                  >
                   <SelectTrigger className="col-span-3"><SelectValue placeholder="Välj typ..." /></SelectTrigger>
                   <SelectContent><SelectItem value="income">Inkomst</SelectItem><SelectItem value="expense">Utgift</SelectItem></SelectContent>
                 </Select>
@@ -1378,8 +1363,8 @@ export default function DashboardPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setIsCategoryDialogOpen(false); setNewCategoryName(''); setNewCategoryType(undefined); setNewCategoryIconName(iconOptions.find(opt => opt.value === 'Shapes')?.value);}}>Avbryt</Button>
-              <Button onClick={handleAddCategory}>Skapa Kategori</Button>
+              <Button variant="outline" onClick={() => { setIsCategoryDialogOpen(false); resetCategoryForm();}}>Avbryt</Button>
+              <Button onClick={handleSaveCategory}>{editingCategory ? 'Spara ändringar' : 'Skapa Kategori'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
