@@ -96,10 +96,10 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
       if (latestVersionInfo.version !== userLastSeenVersion) {
         setShowWhatsNewDialog(true);
       } else {
-        setShowWhatsNewDialog(false);
+        setShowWhatsNewDialog(false); // Explicitly set to false if versions match
       }
     } else {
-      setShowWhatsNewDialog(false);
+      setShowWhatsNewDialog(false); // Explicitly set to false if conditions not met
     }
   }, [isLoadingVersionInfo, authLoading, currentUser, latestVersionInfo, userLastSeenVersion]);
 
