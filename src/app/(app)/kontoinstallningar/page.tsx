@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, ShieldAlert, Trash2, Loader2, AlertCircle, BadgeCheck, ShieldX, XCircle, Copy, ExternalLink, Camera as CameraIcon, RefreshCw, CheckCircle as CheckCircleIcon, LogOut } from 'lucide-react';
+import { Upload, ShieldAlert, Trash2, Loader2, AlertCircle, BadgeCheck, ShieldX, XCircle, Copy, ExternalLink, Camera as CameraIcon, RefreshCw, CheckCircle as CheckCircleIcon } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,8 +22,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle as DialogTitleComponent, DialogFooter as DialogFooterComponent, DialogClose, DialogTrigger as DialogTriggerComponent, DialogDescription as ShadDialogDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import React, { useState, useEffect, FormEvent, useRef } from 'react';
-import { updateProfile as updateFirebaseAuthProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, deleteObject } from 'firebase/auth';
-import { doc, updateDoc, getDoc, setDoc, serverTimestamp, Timestamp, deleteDoc as deleteFirestoreDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { updateProfile as updateFirebaseAuthProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp, Timestamp, deleteDoc as deleteFirestoreDoc, collection, query, where, getDocs, writeBatch, FieldValue } from 'firebase/firestore';
 import { auth, db, storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject as deleteStorageObject } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -78,23 +78,22 @@ export default function AccountSettingsPage() {
     if (currentUser) {
       setDisplayName(currentUser.displayName || '');
       setEmail(currentUser.email || '');
-      setImagePreviewUrl(currentUser.photoURL || null); 
-
+      // Prioritize Firestore photoURL if available, then Auth, then null
       const fetchFirestoreProfileData = async () => {
         if (!currentUser.uid) return;
         const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            if (userData.displayName) setDisplayName(userData.displayName);
-            // Prioritize photoURL from Firestore if it exists and is different from Auth, or if Auth is null
-            if (userData.photoURL || (userData.photoURL === null && currentUser.photoURL !== null)) {
-                 setImagePreviewUrl(userData.photoURL);
-            } else if (currentUser.photoURL) {
-                 setImagePreviewUrl(currentUser.photoURL);
-            } else {
-                 setImagePreviewUrl(null);
-            }
+        try {
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+              const userData = userDocSnap.data();
+              if (userData.displayName) setDisplayName(userData.displayName);
+              setImagePreviewUrl(userData.photoURL || currentUser.photoURL || null);
+          } else {
+             setImagePreviewUrl(currentUser.photoURL || null);
+          }
+        } catch (error) {
+            console.error("Error fetching user data from Firestore:", error);
+            setImagePreviewUrl(currentUser.photoURL || null); // Fallback to auth URL
         }
       };
       fetchFirestoreProfileData();
@@ -113,40 +112,32 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const handleProfileUpdate = async (e: FormEvent) => {
+const handleProfileUpdate = async (e: FormEvent) => {
     e.preventDefault();
-    if (!currentUser || !auth.currentUser) {
-        setProfileError("Ingen användare inloggad eller autentiseringsinformation saknas.");
-        toast({ title: "Fel", description: "Ingen användare inloggad.", variant: "destructive" });
-        return;
-    }
     setIsLoadingProfile(true);
     setProfileError(null);
-    let operationSuccessful = false;
 
     try {
-        let finalPhotoURL: string | null = imagePreviewUrl; // Start with current preview URL
-        let displayNameChanged = displayName !== (auth.currentUser.displayName || '');
-        let photoChangedOrRemoved = false;
+        if (!currentUser || !auth.currentUser) {
+            throw new Error("Autentiseringsfel. Användare ej tillgänglig.");
+        }
+
+        const currentAuthDisplayName = auth.currentUser.displayName || '';
+        const displayNameChanged = displayName !== currentAuthDisplayName;
+        let newImageUploadedAndSaved = false;
+        let finalPhotoURLForAuthAndFirestore: string | null = auth.currentUser.photoURL || null;
 
         // 1. Handle new image upload if a file is selected
         if (selectedImageFile) {
             const filePath = `profileImages/${auth.currentUser.uid}/profilePicture.jpg`;
             const imageStorageRef = storageRef(storage, filePath);
             await uploadBytes(imageStorageRef, selectedImageFile);
-            finalPhotoURL = await getDownloadURL(imageStorageRef);
-            photoChangedOrRemoved = true;
-        } else {
-            // This means no new file was selected. Check if the imagePreviewUrl (which could be null if removed)
-            // is different from the current auth.currentUser.photoURL.
-            if (imagePreviewUrl !== (auth.currentUser.photoURL || null)) {
-                finalPhotoURL = imagePreviewUrl; // This will be null if user clicked "Ta bort bild" from UI
-                photoChangedOrRemoved = true;
-            }
+            finalPhotoURLForAuthAndFirestore = await getDownloadURL(imageStorageRef);
+            newImageUploadedAndSaved = true;
         }
 
-        // 2. Prepare updates only if something actually changed
-        if (displayNameChanged || photoChangedOrRemoved) {
+        // 2. Prepare and apply updates if name changed or new image was uploaded
+        if (displayNameChanged || newImageUploadedAndSaved) {
             const authUpdates: { displayName?: string; photoURL?: string | null } = {};
             const firestoreUpdates: any = { updatedAt: serverTimestamp() };
 
@@ -154,20 +145,18 @@ export default function AccountSettingsPage() {
                 authUpdates.displayName = displayName;
                 firestoreUpdates.displayName = displayName;
             }
-            if (photoChangedOrRemoved) {
-                authUpdates.photoURL = finalPhotoURL; // Can be null if removed
-                firestoreUpdates.photoURL = finalPhotoURL; // Can be null if removed
+            if (newImageUploadedAndSaved) { 
+                authUpdates.photoURL = finalPhotoURLForAuthAndFirestore;
+                firestoreUpdates.photoURL = finalPhotoURLForAuthAndFirestore;
             }
 
-            // Apply Auth updates if there are any
             if (Object.keys(authUpdates).length > 0) {
                 await updateFirebaseAuthProfile(auth.currentUser, authUpdates);
             }
 
-            // Apply Firestore updates
             const userDocRef = doc(db, 'users', auth.currentUser.uid);
-            // Ensure email is part of update to avoid removing it if doc is new or email field is missing
-             if (!firestoreUpdates.email && auth.currentUser.email) {
+             // Ensure email is part of update to avoid removing it if doc is new or email field is missing
+            if (!firestoreUpdates.email && auth.currentUser.email) {
                 const userSnap = await getDoc(userDocRef);
                 if (!userSnap.exists() || !userSnap.data()?.email) {
                     firestoreUpdates.email = auth.currentUser.email;
@@ -175,13 +164,13 @@ export default function AccountSettingsPage() {
             }
             await setDoc(userDocRef, firestoreUpdates, { merge: true });
             
-            operationSuccessful = true;
-        }
-
-        if (operationSuccessful) {
-            await refreshUserData(); // Refresh context after all updates
+            await refreshUserData(); 
             toast({ title: "Profil Uppdaterad", description: "Din profil har sparats." });
-            setSelectedImageFile(null); // Clear selected file only on successful save of new image
+            
+            if (newImageUploadedAndSaved) {
+                setSelectedImageFile(null); 
+                setImagePreviewUrl(finalPhotoURLForAuthAndFirestore); 
+            }
         } else {
             toast({ title: "Inga Ändringar", description: "Inga ändringar att spara." });
         }
@@ -216,7 +205,8 @@ export default function AccountSettingsPage() {
     }
 };
 
-  const handleRemoveProfileImage = async () => {
+
+const handleRemoveProfileImage = async () => {
     if (!currentUser || !auth.currentUser) {
         toast({ title: "Fel", description: "Ingen användare inloggad.", variant: "destructive" });
         return;
@@ -225,11 +215,13 @@ export default function AccountSettingsPage() {
     const confirmRemoval = confirm("Är du säker på att du vill ta bort din profilbild permanent?");
     if (!confirmRemoval) return;
 
-    setIsLoadingProfile(true);
+    setIsLoadingProfile(true); // Use the same loading state
     setProfileError(null);
     try {
-        // 1. Delete from Storage if a photoURL exists
-        if (auth.currentUser.photoURL) {
+        // 1. Delete from Storage if a photoURL exists (either in auth or Firestore, check auth first)
+        const photoUrlToCheck = auth.currentUser.photoURL || (imagePreviewUrl !== null && imagePreviewUrl !== undefined && !imagePreviewUrl.startsWith('data:')); // Check if preview is a persisted URL
+
+        if (photoUrlToCheck) { // Only attempt delete if there's a URL that's not a data URI
             const filePath = `profileImages/${auth.currentUser.uid}/profilePicture.jpg`;
             const imageStorageRef = storageRef(storage, filePath);
             try {
@@ -237,7 +229,6 @@ export default function AccountSettingsPage() {
             } catch (storageError: any) {
                 if (storageError.code !== 'storage/object-not-found') {
                     console.warn("Could not delete profile image from Storage, it might not exist or other error:", storageError);
-                    // Proceed to update Auth/Firestore even if storage deletion fails (might be already deleted)
                 }
             }
         }
@@ -249,8 +240,8 @@ export default function AccountSettingsPage() {
         const userDocRef = doc(db, 'users', auth.currentUser.uid);
         await updateDoc(userDocRef, { photoURL: null, updatedAt: serverTimestamp() });
 
-        setImagePreviewUrl(null); // Update UI immediately
-        setSelectedImageFile(null);
+        setImagePreviewUrl(null); 
+        setSelectedImageFile(null); 
         await refreshUserData();
         toast({ title: "Profilbild Borttagen", description: "Din profilbild har tagits bort." });
 
@@ -264,9 +255,8 @@ export default function AccountSettingsPage() {
         }
         setProfileError(userFriendlyError);
         toast({ title: "Fel", description: userFriendlyError, variant: "destructive" });
-        // Don't revert UI optimistically, let refreshUserData handle it if needed
     } finally {
-        setIsLoadingProfile(false);
+        setIsLoadingProfile(false); // Use the same loading state
     }
 };
 
@@ -336,9 +326,7 @@ export default function AccountSettingsPage() {
         memberBoardsSnapshot.forEach(boardDoc => {
             if (boardDoc.data().ownerUid === uid) {
                 firestoreBatch.delete(boardDoc.ref);
-                // Not deleting subcollections here for simplicity, as per original requirement
             } else {
-                // Remove user from 'members' array and their role if they are not the owner
                 const boardData = boardDoc.data();
                 const newMembers = (boardData.members || []).filter((memberUid: string) => memberUid !== uid);
                 const newMemberRoles = { ...(boardData.memberRoles || {}) };
@@ -348,15 +336,16 @@ export default function AccountSettingsPage() {
         });
         
         await firestoreBatch.commit();
-
-        // Delete profile image from storage
-        const filePath = `profileImages/${uid}/profilePicture.jpg`;
-        const imageStorageRef = storageRef(storage, filePath);
-        try {
-            await deleteStorageObject(imageStorageRef);
-        } catch (storageError: any) {
-            if (storageError.code !== 'storage/object-not-found') {
-                console.warn("Could not delete profile image during account deletion:", storageError);
+        
+        if (auth.currentUser?.photoURL) { // Check if there's a photoURL before attempting deletion
+            const filePath = `profileImages/${uid}/profilePicture.jpg`;
+            const imageStorageRef = storageRef(storage, filePath);
+            try {
+                await deleteStorageObject(imageStorageRef);
+            } catch (storageError: any) {
+                if (storageError.code !== 'storage/object-not-found') {
+                    console.warn("Could not delete profile image during account deletion:", storageError);
+                }
             }
         }
         
@@ -368,7 +357,6 @@ export default function AccountSettingsPage() {
             duration: 10000,
         });
         setIsDeleteAlertDialogOpen(false);
-        // AuthProvider's onAuthStateChanged will handle redirect via contextLogOut
     } catch (error: any) {
         console.error("Account deletion error:", error);
         let friendlyMessage = "Kunde inte radera kontot.";
@@ -385,14 +373,10 @@ export default function AccountSettingsPage() {
         }
         setDeleteAccountError(friendlyMessage);
     } finally {
-      // Check if user still exists before setting loading to false, 
-      // as onAuthStateChanged might have already triggered a redirect
       if (auth.currentUser && auth.currentUser.uid === uid) {
          setIsLoadingDelete(false);
       } else if (!auth.currentUser && isDeleteAlertDialogOpen) { 
-         // If user is gone and dialog was open, it's likely due to this process
-         // No need to set isLoadingDelete as component might unmount
-      } else if (isDeleteAlertDialogOpen) { // Fallback if still on page
+      } else if (isDeleteAlertDialogOpen) { 
          setIsLoadingDelete(false);
       }
     }
@@ -432,12 +416,11 @@ export default function AccountSettingsPage() {
   };
 
 
-  // Camera Logic
   useEffect(() => {
     const startCamera = async () => {
       if (isCameraDialogOpen && !capturedCameraImagePreview) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } }); // Use front camera
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } }); 
           streamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
@@ -485,14 +468,14 @@ export default function AccountSettingsPage() {
   };
 
   const handleRetakeImage = () => {
-    setCapturedCameraImagePreview(null); // This will trigger useEffect to restart camera
+    setCapturedCameraImagePreview(null); 
   };
 
   const handleUseCapturedImage = async () => {
     if (capturedCameraImagePreview) {
-      setImagePreviewUrl(capturedCameraImagePreview); // Set for main page preview
+      setImagePreviewUrl(capturedCameraImagePreview); 
       const imageFile = await dataUrlToFile(capturedCameraImagePreview, 'profilePicture.jpg');
-      setSelectedImageFile(imageFile); // Set as file to be uploaded
+      setSelectedImageFile(imageFile); 
     }
     setCapturedCameraImagePreview(null);
     setIsCameraDialogOpen(false);
@@ -543,7 +526,7 @@ export default function AccountSettingsPage() {
                 
                 <Dialog open={isCameraDialogOpen} onOpenChange={(open) => {
                     setIsCameraDialogOpen(open);
-                    if (!open) { // Cleanup on dialog close
+                    if (!open) { 
                         if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
                         streamRef.current = null;
                         setCapturedCameraImagePreview(null);
@@ -607,7 +590,7 @@ export default function AccountSettingsPage() {
                     </DialogContent>
                 </Dialog>
               </div>
-               {imagePreviewUrl && (
+               {imagePreviewUrl && ( // Show this button only if there's an image (preview or persisted)
                 <Button variant="destructive" type="button" onClick={handleRemoveProfileImage} className="w-full sm:w-auto" disabled={isLoadingProfile}>
                   {isLoadingProfile && imagePreviewUrl === null ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                   Ta bort profilbild
@@ -853,3 +836,4 @@ export default function AccountSettingsPage() {
     </div>
   );
 }
+
