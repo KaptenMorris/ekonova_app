@@ -38,7 +38,9 @@ import {
 } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch'; // Added Switch import
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
+
 
 // Lucide icons map for dynamic rendering
 const iconComponents: { [key: string]: React.ElementType } = {
@@ -157,7 +159,7 @@ export default function DashboardPage() {
   const [newCategoryIconName, setNewCategoryIconName] = useState<string | undefined>(iconOptions.find(opt => opt.value === 'Shapes')?.value);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [isCategoryEditMode, setIsCategoryEditMode] = useState(false); // New state for category edit mode
+  const [isCategoryEditMode, setIsCategoryEditMode] = useState(false);
 
 
   const [isMemberManagementDialogOpen, setIsMemberManagementDialogOpen] = useState(false);
@@ -1261,15 +1263,23 @@ export default function DashboardPage() {
                   <CardTitle className="text-lg">Kategoriöversikt</CardTitle>
                   <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''}.</CardDescription>
                 </div>
-                {canEditActiveBoard && activeBoardId && (
+                {activeBoardId && (
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="category-edit-mode"
                       checked={isCategoryEditMode}
                       onCheckedChange={setIsCategoryEditMode}
-                      disabled={isLoadingBoardData}
+                      disabled={!canEditActiveBoard || isLoadingBoardData}
                     />
-                    <Label htmlFor="category-edit-mode" className="text-sm">Redigera Kategorier</Label>
+                    <Label 
+                      htmlFor="category-edit-mode" 
+                      className={cn(
+                        "text-sm",
+                        (!canEditActiveBoard || isLoadingBoardData) && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      Redigera Kategorier
+                    </Label>
                   </div>
                 )}
               </CardHeader>
