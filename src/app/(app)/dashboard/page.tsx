@@ -34,6 +34,7 @@ import {
   arrayRemove,
   setDoc,
   FieldValue,
+  limit,
 } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -704,6 +705,60 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
+    if (!currentUser?.uid || !activeBoardId || !canEditActiveBoard) {
+      toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att radera kategorier på denna tavla.", variant: "destructive" });
+      return;
+    }
+
+    // Check if category is used by transactions
+    const transactionsRef = collection(db, 'boards', activeBoardId, 'transactions');
+    const transQuery = query(transactionsRef, where("category", "==", categoryId), limit(1));
+    const transSnapshot = await getDocs(transQuery);
+
+    if (!transSnapshot.empty) {
+      toast({
+        title: "Kan inte Radera Kategori",
+        description: `Kategorin "${categoryName}" används av en eller flera transaktioner. Ändra eller ta bort dessa transaktioner först.`,
+        variant: "destructive",
+        duration: 7000,
+      });
+      return;
+    }
+
+    // Check if category is used by bills
+    const billsRef = collection(db, 'boards', activeBoardId, 'bills');
+    const billsQuery = query(billsRef, where("category", "==", categoryId), limit(1));
+    const billsSnapshot = await getDocs(billsQuery);
+
+    if (!billsSnapshot.empty) {
+      toast({
+          title: "Kan inte Radera Kategori",
+          description: `Kategorin "${categoryName}" används av en eller flera räkningar. Ändra eller ta bort kategorin från dessa räkningar först.`,
+          variant: "destructive",
+          duration: 7000,
+      });
+      return;
+    }
+
+    const confirmDelete = confirm(`Är du säker på att du vill radera kategorin "${categoryName}"? Detta kan inte ångras.`);
+    if (!confirmDelete) return;
+
+    try {
+      const categoryDocRef = doc(db, 'boards', activeBoardId, 'categories', categoryId);
+      await deleteDoc(categoryDocRef);
+      toast({ title: "Kategori Raderad", description: `Kategorin "${categoryName}" har raderats.` });
+    } catch (error: any) {
+      console.error("Error deleting category:", error);
+      let description = "Kunde inte radera kategorin.";
+      if (error.code === 'permission-denied') {
+        description = "Åtkomst nekad. Kontrollera dina Firestore-säkerhetsregler.";
+      }
+      toast({ title: "Fel vid Radering", description, variant: "destructive" });
+    }
+  };
+
+
   const resetTransactionForm = () => {
     setNewTransactionTitle('');
     setNewTransactionAmount('');
@@ -1226,7 +1281,20 @@ export default function DashboardPage() {
                       {activeBoardData.categories.filter(cat => cat.type === 'income').map(cat => (
                         <li key={cat.id} className="flex items-center justify-between text-sm p-3 border rounded-md shadow-sm hover:bg-muted/50 transition-colors">
                           <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
-                          <span className="font-semibold text-accent shrink-0">+ {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-semibold text-accent">+ {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
+                            {canEditActiveBoard && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                                aria-label={`Radera kategori ${cat.name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -1239,7 +1307,20 @@ export default function DashboardPage() {
                       {activeBoardData.categories.filter(cat => cat.type === 'expense').map(cat => (
                         <li key={cat.id} className="flex items-center justify-between text-sm p-3 border rounded-md shadow-sm hover:bg-muted/50 transition-colors">
                            <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
-                          <span className="font-semibold text-destructive shrink-0">- {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
+                           <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-semibold text-destructive">- {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
+                            {canEditActiveBoard && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                                aria-label={`Radera kategori ${cat.name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -1358,3 +1439,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
