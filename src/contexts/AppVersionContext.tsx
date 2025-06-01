@@ -44,7 +44,13 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
   const [userLastSeenVersion, setUserLastSeenVersion] = useState<string | null>(null);
 
   const fetchLatestVersion = useCallback(async () => {
-    setIsLoadingVersionInfo(true);
+    if (authLoading || !currentUser) { // Ensure currentUser is also available
+      setIsLoadingVersionInfo(false);
+      // If auth is resolved and no user, we can't fetch version info (it's protected)
+      // but we don't explicitly clear latestVersionInfo here, let the calling useEffect handle it.
+      return;
+    }
+    setIsLoadingVersionInfo(true); // Set loading true at the start of an actual fetch attempt
     try {
       const versionDocRef = doc(db, 'appVersionInfo', 'latest');
       const versionDocSnap = await getDoc(versionDocRef);
@@ -53,7 +59,7 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
         if (data.published) {
           setLatestVersionInfo({ id: versionDocSnap.id, ...data });
         } else {
-          setLatestVersionInfo(null); // Don't set if not published
+          setLatestVersionInfo(null);
         }
       } else {
         setLatestVersionInfo(null);
@@ -64,48 +70,45 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
       setLatestVersionInfo(null);
     }
     setIsLoadingVersionInfo(false);
-  }, []);
+  }, [authLoading, currentUser]);
 
   const fetchUserLastSeenVersion = useCallback(async () => {
     if (currentUser) {
-      setIsLoadingVersionInfo(true); // Indicate loading while fetching user-specific version
+      // No need to set setIsLoadingVersionInfo here if fetchLatestVersion handles it
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           setUserLastSeenVersion(userDocSnap.data()?.lastSeenAppVersion || null);
         } else {
-          setUserLastSeenVersion(null); // User document might not exist yet
+          setUserLastSeenVersion(null);
         }
       } catch (error) {
         console.error("Error fetching user's last seen app version:", error);
         setUserLastSeenVersion(null);
       }
-      // setIsLoadingVersionInfo(false); // This might be set by fetchLatestVersion too
     }
   }, [currentUser]);
 
   useEffect(() => {
-    // Fetch general app version info only after auth state is somewhat resolved
-    if (!authLoading) {
+    if (!authLoading && currentUser) { // Only fetch if auth is resolved AND there is a user
         fetchLatestVersion();
+    } else if (!authLoading && !currentUser) { // If auth is resolved but no user, clear version info
+        setLatestVersionInfo(null);
+        setIsLoadingVersionInfo(false); // Ensure loading state is false if no user
     }
-  }, [authLoading, fetchLatestVersion]);
+  }, [authLoading, currentUser, fetchLatestVersion]);
 
   useEffect(() => {
-    // Fetch user-specific data once currentUser is available and auth is not loading
     if (!authLoading && currentUser) {
       fetchUserLastSeenVersion();
     } else if (!authLoading && !currentUser) {
-      // If user is not logged in, reset user-specific version state
       setUserLastSeenVersion(null);
     }
   }, [authLoading, currentUser, fetchUserLastSeenVersion]);
 
 
   useEffect(() => {
-    // Determine if dialog should be shown
-    // This effect should run after both latestVersionInfo and userLastSeenVersion (and auth state) are settled
     if (!isLoadingVersionInfo && !authLoading && currentUser && latestVersionInfo) {
       if (latestVersionInfo.version !== userLastSeenVersion) {
         setShowWhatsNewDialog(true);
@@ -113,7 +116,6 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
         setShowWhatsNewDialog(false);
       }
     } else {
-      // Default to not showing if data is loading, or no user/version info
       setShowWhatsNewDialog(false);
     }
   }, [isLoadingVersionInfo, authLoading, currentUser, latestVersionInfo, userLastSeenVersion]);
@@ -123,12 +125,10 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
     if (currentUser && latestVersionInfo && latestVersionInfo.version !== userLastSeenVersion) {
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
-        // Use setDoc with merge:true to create/update the field robustly
         await setDoc(userDocRef, { lastSeenAppVersion: latestVersionInfo.version }, { merge: true });
-        setUserLastSeenVersion(latestVersionInfo.version); // Update local state
+        setUserLastSeenVersion(latestVersionInfo.version);
       } catch (error) {
         console.error("Error updating user's lastSeenAppVersion:", error);
-        // Optionally, show a toast to the user if this fails, though it's a background task.
       }
     }
   }, [currentUser, latestVersionInfo, userLastSeenVersion]);
