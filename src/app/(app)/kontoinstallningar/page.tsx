@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, ShieldAlert, Trash2, Loader2, AlertCircle, BadgeCheck, ShieldX, XCircle, Copy, ExternalLink } from 'lucide-react'; // Added ExternalLink
+import { Upload, ShieldAlert, Trash2, Loader2, AlertCircle, BadgeCheck, ShieldX, XCircle, Copy, ExternalLink, Camera as CameraIcon, RefreshCw, CheckCircle as CheckCircleIcon } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,16 +19,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle as DialogTitleComponent, DialogFooter as DialogFooterComponent, DialogClose, DialogTrigger as DialogTriggerComponent, DialogDescription as ShadDialogDescription } from '@/components/ui/dialog'; // Renamed to avoid conflict
 import { useAuth } from '@/contexts/AuthContext';
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent, useRef } from 'react';
 import { updateProfile as updateFirebaseAuthProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, updateDoc, getDoc, setDoc, serverTimestamp, Timestamp, deleteDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase'; 
+import { auth, db, storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
+import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescriptionComponent } from "@/components/ui/alert";
 import SubscriptionPrompt from '@/components/shared/subscription-prompt';
-import Link from 'next/link'; // Added Link for "Glömt lösenord"
+import Link from 'next/link';
+import Image from 'next/image';
 
+
+async function dataUrlToFile(dataUrl: string, fileName: string): Promise<File> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+}
 
 export default function AccountSettingsPage() {
   const { currentUser, subscription, refreshUserData, loading: authLoading } = useAuth();
@@ -39,6 +48,18 @@ export default function AccountSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isCameraDialogOpen, setIsCameraDialogOpen] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [capturedCameraImagePreview, setCapturedCameraImagePreview] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
@@ -57,33 +78,83 @@ export default function AccountSettingsPage() {
     if (currentUser) {
       setDisplayName(currentUser.displayName || '');
       setEmail(currentUser.email || '');
+      setImagePreviewUrl(currentUser.photoURL || null); 
+
       const fetchFirestoreDisplayName = async () => {
         if (!currentUser.uid) return;
         const userDocRef = doc(db, 'users', currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists() && userDocSnap.data().displayName) {
-          setDisplayName(userDocSnap.data().displayName);
+        if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            if (userData.displayName) setDisplayName(userData.displayName);
+            if (userData.photoURL) setImagePreviewUrl(userData.photoURL);
         }
       };
       fetchFirestoreDisplayName();
     }
   }, [currentUser]);
 
+  const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleProfileUpdate = async (e: FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
     setIsLoadingProfile(true);
     setProfileError(null);
+    let newPhotoURL = imagePreviewUrl; // Start with current preview or existing photoURL
+
     try {
-      await updateFirebaseAuthProfile(currentUser, { displayName });
+      // 1. Handle image upload if a new image file is selected (not just a preview from current URL)
+      if (selectedImageFile) {
+        const filePath = `profileImages/${currentUser.uid}/profilePicture.jpg`; // Fixed filename
+        const imageStorageRef = storageRef(storage, filePath);
+        await uploadBytes(imageStorageRef, selectedImageFile);
+        newPhotoURL = await getDownloadURL(imageStorageRef);
+      }
+
+      // 2. Update Firebase Auth profile
+      const authProfileUpdates: { displayName?: string; photoURL?: string | null } = {};
+      if (displayName !== (currentUser.displayName || '')) {
+        authProfileUpdates.displayName = displayName;
+      }
+      // Only update photoURL if it actually changed from the original currentUser.photoURL
+      // or if a new file was uploaded (newPhotoURL would be different from initial imagePreviewUrl if it came from selectedImageFile)
+      if (newPhotoURL !== (currentUser.photoURL || null)) {
+        authProfileUpdates.photoURL = newPhotoURL;
+      }
+
+      if (Object.keys(authProfileUpdates).length > 0) {
+        await updateFirebaseAuthProfile(currentUser, authProfileUpdates);
+      }
+
+      // 3. Update Firestore user document
       const userDocRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userDocRef,
-        { displayName, email: currentUser.email, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-      await currentUser.reload(); 
-      await refreshUserData(); 
-      toast({ title: "Profil Uppdaterad", description: "Ditt namn har sparats." });
+      const firestoreUpdates: any = { // Use any for flexibility, then specify known fields
+        displayName,
+        email: currentUser.email,
+        updatedAt: serverTimestamp(),
+      };
+      if (newPhotoURL !== ( (await getDoc(userDocRef)).data()?.photoURL || null )) { // Compare with current Firestore value
+         firestoreUpdates.photoURL = newPhotoURL;
+      }
+      
+      await setDoc(userDocRef, firestoreUpdates, { merge: true });
+      
+      setSelectedImageFile(null); // Clear selected file after successful save
+      await refreshUserData(); // This should update currentUser in context
+      toast({ title: "Profil Uppdaterad", description: "Din profil har sparats." });
+      // imagePreviewUrl is already up-to-date from selection or will be updated by useEffect on currentUser change
+    
     } catch (error: any) {
       console.error("Profile update error:", error);
       setProfileError(error.message || "Kunde inte uppdatera profilen.");
@@ -229,6 +300,74 @@ export default function AccountSettingsPage() {
     }
   };
 
+
+  // Camera Logic
+  useEffect(() => {
+    const startCamera = async () => {
+      if (isCameraDialogOpen && !capturedCameraImagePreview) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } }); // Use front camera
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+          setHasCameraPermission(true);
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Kameraåtkomst Nekad',
+            description: 'Vänligen tillåt kameraåtkomst i din webbläsare.',
+          });
+        }
+      }
+    };
+    startCamera();
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        if(videoRef.current) videoRef.current.srcObject = null;
+      }
+    };
+  }, [isCameraDialogOpen, toast, capturedCameraImagePreview]);
+
+  const handleCaptureImage = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setCapturedCameraImagePreview(dataUrl);
+         if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+            if(videoRef.current) videoRef.current.srcObject = null;
+        }
+      }
+    }
+  };
+
+  const handleRetakeImage = () => {
+    setCapturedCameraImagePreview(null); // This will trigger useEffect to restart camera
+  };
+
+  const handleUseCapturedImage = async () => {
+    if (capturedCameraImagePreview) {
+      setImagePreviewUrl(capturedCameraImagePreview); // Set for main page preview
+      const imageFile = await dataUrlToFile(capturedCameraImagePreview, 'profilePicture.jpg');
+      setSelectedImageFile(imageFile); // Set as file to be uploaded
+    }
+    setCapturedCameraImagePreview(null);
+    setIsCameraDialogOpen(false);
+  };
+
+
   if (authLoading) {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> Laddar användardata...</div>;
   }
@@ -249,25 +388,95 @@ export default function AccountSettingsPage() {
       <Card>
         <CardHeader className="p-4 sm:p-6">
           <CardTitle className="text-xl md:text-2xl">Profilinformation</CardTitle>
-          <CardDescription>Uppdatera din profilbild, namn och e-postadress.</CardDescription>
+          <CardDescription>Uppdatera din profilbild och ditt namn.</CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-6">
           {profileError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <ShadAlertTitle>Profilfel</ShadAlertTitle>
-              <ShadAlertDescription>{profileError}</ShadAlertDescription>
+              <ShadAlertDescriptionComponent>{profileError}</ShadAlertDescriptionComponent>
             </Alert>
           )}
           <form onSubmit={handleProfileUpdate} className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={currentUser.photoURL || `https://placehold.co/150x150.png?text=${userAvatarFallback}`} alt={displayName || "Användare"} data-ai-hint="profile avatar large"/>
-                <AvatarFallback>{userAvatarFallback}</AvatarFallback>
+            <div className="flex flex-col items-center space-y-4">
+              <Avatar className="h-32 w-32 ring-2 ring-primary ring-offset-2 ring-offset-background">
+                <AvatarImage src={imagePreviewUrl || `https://placehold.co/150x150.png?text=${userAvatarFallback}`} alt={displayName || "Användare"} data-ai-hint="profile avatar large"/>
+                <AvatarFallback className="text-4xl">{userAvatarFallback}</AvatarFallback>
               </Avatar>
-              <Button variant="outline" type="button" className="w-full sm:w-auto" disabled>
-                <Upload className="mr-2 h-4 w-4" /> Ladda upp ny bild (ej implementerat)
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()} className="flex-1">
+                  <Upload className="mr-2 h-4 w-4" /> Ladda upp bild
+                </Button>
+                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageFileChange} className="hidden" />
+                
+                <Dialog open={isCameraDialogOpen} onOpenChange={(open) => {
+                    setIsCameraDialogOpen(open);
+                    if (!open) { // Cleanup on dialog close
+                        if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+                        streamRef.current = null;
+                        setCapturedCameraImagePreview(null);
+                        setHasCameraPermission(null);
+                    }
+                }}>
+                    <DialogTriggerComponent asChild>
+                        <Button variant="outline" type="button" onClick={() => setIsCameraDialogOpen(true)} className="flex-1">
+                            <CameraIcon className="mr-2 h-4 w-4" /> Ta bild med kamera
+                        </Button>
+                    </DialogTriggerComponent>
+                    <DialogContent className="sm:max-w-[90vw] md:max-w-[600px]">
+                        <DialogHeader>
+                            <DialogTitleComponent>Ta Profilbild</DialogTitleComponent>
+                            <ShadDialogDescription>Använd din kamera för att ta en ny profilbild.</ShadDialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                        {hasCameraPermission === false && (
+                            <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <ShadAlertTitle>Kameraåtkomst Nekad</ShadAlertTitle>
+                            <ShadAlertDescriptionComponent>
+                                Tillåt kameraåtkomst i din webbläsare för att använda denna funktion. Du kan behöva ladda om sidan efter att ha ändrat inställningarna.
+                            </ShadAlertDescriptionComponent>
+                            </Alert>
+                        )}
+                        {hasCameraPermission === true && (
+                            <>
+                            {!capturedCameraImagePreview ? (
+                                <div className="relative">
+                                <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay playsInline muted />
+                                <Button onClick={handleCaptureImage} className="absolute bottom-4 left-1/2 -translate-x-1/2">
+                                    <CameraIcon className="mr-2 h-4 w-4" /> Ta Bild
+                                </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                <Image src={capturedCameraImagePreview} alt="Förhandsvisning av profilbild" width={400} height={300} className="rounded-md max-h-[50vh] w-auto mx-auto" data-ai-hint="profile capture preview"/>
+                                <div className="flex justify-center gap-4">
+                                    <Button onClick={handleRetakeImage} variant="outline">
+                                    <RefreshCw className="mr-2 h-4 w-4" /> Ta om bild
+                                    </Button>
+                                    <Button onClick={handleUseCapturedImage}>
+                                    <CheckCircleIcon className="mr-2 h-4 w-4" /> Använd den här bilden
+                                    </Button>
+                                </div>
+                                </div>
+                            )}
+                            </>
+                        )}
+                        {hasCameraPermission === null && !capturedCameraImagePreview && (
+                            <div className="flex items-center justify-center h-40">
+                                <Loader2 className="h-8 w-8 animate-spin"/> <span className="ml-2">Startar kamera...</span>
+                            </div>
+                        )}
+                        </div>
+                        <canvas ref={canvasRef} className="hidden"></canvas>
+                        <DialogFooterComponent>
+                            <DialogClose asChild><Button variant="ghost">Avbryt</Button></DialogClose>
+                        </DialogFooterComponent>
+                    </DialogContent>
+                </Dialog>
+
+              </div>
             </div>
 
             <div className="grid gap-2">
@@ -277,7 +486,7 @@ export default function AccountSettingsPage() {
             <div className="grid gap-2">
               <Label htmlFor="email">E-postadress</Label>
               <Input id="email" type="email" value={email || ''} disabled />
-              <p className="text-xs text-muted-foreground">E-poständring hanteras inte här.</p>
+              <p className="text-xs text-muted-foreground">E-postadress kan inte ändras här.</p>
             </div>
             <Button type="submit" disabled={isLoadingProfile} className="w-full sm:w-auto">
               {isLoadingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -400,7 +609,7 @@ export default function AccountSettingsPage() {
              <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <ShadAlertTitle>Lösenordsfel</ShadAlertTitle>
-              <ShadAlertDescription>{passwordError}</ShadAlertDescription>
+              <ShadAlertDescriptionComponent>{passwordError}</ShadAlertDescriptionComponent>
             </Alert>
           )}
           <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -507,3 +716,4 @@ export default function AccountSettingsPage() {
     </div>
   );
 }
+
