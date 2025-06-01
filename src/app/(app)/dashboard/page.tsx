@@ -38,6 +38,7 @@ import {
 } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch'; // Added Switch import
 
 // Lucide icons map for dynamic rendering
 const iconComponents: { [key: string]: React.ElementType } = {
@@ -156,6 +157,7 @@ export default function DashboardPage() {
   const [newCategoryIconName, setNewCategoryIconName] = useState<string | undefined>(iconOptions.find(opt => opt.value === 'Shapes')?.value);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [isCategoryEditMode, setIsCategoryEditMode] = useState(false); // New state for category edit mode
 
 
   const [isMemberManagementDialogOpen, setIsMemberManagementDialogOpen] = useState(false);
@@ -1254,9 +1256,22 @@ export default function DashboardPage() {
             </div>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Kategoriöversikt</CardTitle>
-                <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''}.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Kategoriöversikt</CardTitle>
+                  <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''}.</CardDescription>
+                </div>
+                {canEditActiveBoard && activeBoardId && (
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="category-edit-mode"
+                      checked={isCategoryEditMode}
+                      onCheckedChange={setIsCategoryEditMode}
+                      disabled={isLoadingBoardData}
+                    />
+                    <Label htmlFor="category-edit-mode" className="text-sm">Redigera Kategorier</Label>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 max-h-[300px] md:max-h-[400px] lg:max-h-[calc(100vh-600px)] overflow-y-auto">
                 <div>
@@ -1268,7 +1283,7 @@ export default function DashboardPage() {
                           <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
                           <div className="flex items-center gap-1 shrink-0">
                             <span className="font-semibold text-accent">+ {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
-                            {canEditActiveBoard && (
+                            {(isCategoryEditMode && canEditActiveBoard) && (
                               <>
                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenCategoryDialog(cat)} aria-label={`Redigera kategori ${cat.name}`}><Edit3 className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(cat.id, cat.name)} aria-label={`Radera kategori ${cat.name}`}><Trash2 className="h-4 w-4" /></Button>
@@ -1289,7 +1304,7 @@ export default function DashboardPage() {
                            <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
                            <div className="flex items-center gap-1 shrink-0">
                             <span className="font-semibold text-destructive">- {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
-                            {canEditActiveBoard && (
+                            {(isCategoryEditMode && canEditActiveBoard) && (
                               <>
                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenCategoryDialog(cat)} aria-label={`Redigera kategori ${cat.name}`}><Edit3 className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(cat.id, cat.name)} aria-label={`Radera kategori ${cat.name}`}><Trash2 className="h-4 w-4" /></Button>
