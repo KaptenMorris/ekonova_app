@@ -17,7 +17,8 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const { sendPasswordReset, currentUser } = useAuth();
+  const authContext = useAuth(); // Get the whole context
+  const { currentUser } = authContext; // Destructure currentUser separately if needed
   const router = useRouter();
 
   useEffect(() => {
@@ -28,8 +29,6 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     if (currentUser) {
-      // Om användaren redan är inloggad, omdirigera till dashboard.
-      // Detta kan hända om de navigerar hit manuellt.
       router.replace('/dashboard');
     }
   }, [currentUser, router]);
@@ -42,16 +41,14 @@ export default function ResetPasswordPage() {
     setSuccessMessage(null);
 
     try {
-      await sendPasswordReset(email);
+      await authContext.sendPasswordReset(email); // Call sendPasswordReset from the context object
       setSuccessMessage('Om ett konto existerar för denna e-postadress har ett e-postmeddelande för återställning skickats. Kontrollera din inkorg (och skräppost).');
-      setEmail(''); // Rensa fältet efter lyckat försök
+      setEmail(''); 
     } catch (err: any) {
-      console.error("Password reset error details:", err);
+      console.error("Password reset error details:", err); 
       if (err.code === 'auth/invalid-email') {
         setError('E-postadressen är ogiltig.');
       } else if (err.code === 'auth/user-not-found') {
-        // Vi vill inte avslöja om en e-post existerar eller inte av säkerhetsskäl,
-        // så vi visar samma meddelande som vid lyckat försök.
         setSuccessMessage('Om ett konto existerar för denna e-postadress har ett e-postmeddelande för återställning skickats. Kontrollera din inkorg (och skräppost).');
       } else if (err.code === 'auth/too-many-requests'){
         setError('För många försök att återställa lösenordet från den här enheten. Försök igen senare.');
