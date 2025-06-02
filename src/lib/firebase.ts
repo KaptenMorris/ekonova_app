@@ -1,9 +1,9 @@
 
 import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
-import { getAuth, browserLocalPersistence, indexedDBLocalPersistence, initializeAuth } from "firebase/auth"; // Added initializeAuth and persistence types
+import { getAuth } from "firebase/auth"; // Simpler import
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage"; // If you plan to use Firebase Storage
-import { getAnalytics, isSupported } from "firebase/analytics"; // Added isSupported
+import { getStorage } from "firebase/storage";
+import { getAnalytics, isSupported, type Analytics } from "firebase/analytics"; // Import Analytics type
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,19 +15,16 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
+// Initialize Firebase app (ensure it's only done once)
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Explicitly initialize Auth, this might help with HMR in some edge cases or provide more control.
-// Using default persistence order: indexedDB, then browserLocalPersistence.
-const auth = initializeAuth(app, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence]
-});
-
+// Initialize Firebase services (ensure they are only initialized once)
+const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app); // If using storage
+const storage = getStorage(app);
 
-let analytics;
+let analytics: Analytics | undefined;
+
 // Conditionally initialize Analytics only on client and if supported
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
@@ -40,4 +37,3 @@ if (typeof window !== 'undefined') {
 }
 
 export { app, auth, db, storage, analytics };
-
