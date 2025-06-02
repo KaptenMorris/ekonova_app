@@ -44,7 +44,9 @@ interface AuthProviderProps {
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined);
   const [hasMounted, setHasMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Initierar autentisering...");
+
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
   const [boardOrder, setBoardOrder] = useState<string[] | null>(null);
@@ -58,6 +60,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const fetchUserData = useCallback(async (user: User | null) => {
     if (user) {
       try {
+        setLoadingMessage("Hämtar användardata...");
         const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
@@ -76,18 +79,22 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             let authProfileNeedsUpdate = false;
             let authProfileUpdatePayload: { displayName?: string | null; photoURL?: string | null } = {};
 
-            if (authUserToUpdate.displayName && authUserToUpdate.displayName !== userData.displayName) {
-                firestoreUpdates.displayName = authUserToUpdate.displayName;
-            } else if (!authUserToUpdate.displayName && userData.displayName) {
-                authProfileUpdatePayload.displayName = userData.displayName;
-                authProfileNeedsUpdate = true; 
+            if ((authUserToUpdate.displayName || "") !== (userData.displayName || "")) {
+                if(authUserToUpdate.displayName){
+                    firestoreUpdates.displayName = authUserToUpdate.displayName;
+                } else if (userData.displayName) {
+                    authProfileUpdatePayload.displayName = userData.displayName;
+                    authProfileNeedsUpdate = true;
+                }
             }
             
-            if (authUserToUpdate.photoURL !== undefined && authUserToUpdate.photoURL !== userData.photoURL) {
-                 firestoreUpdates.photoURL = authUserToUpdate.photoURL;
-            } else if (authUserToUpdate.photoURL === undefined && userData.photoURL !== undefined) {
-                 authProfileUpdatePayload.photoURL = userData.photoURL;
-                 authProfileNeedsUpdate = true;
+            if ((authUserToUpdate.photoURL || null) !== (userData.photoURL || null)) {
+                 if(authUserToUpdate.photoURL) {
+                    firestoreUpdates.photoURL = authUserToUpdate.photoURL;
+                 } else if (userData.photoURL) {
+                    authProfileUpdatePayload.photoURL = userData.photoURL;
+                    authProfileNeedsUpdate = true;
+                 }
             }
 
             if (Object.keys(firestoreUpdates).length > 0) {
@@ -97,7 +104,10 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
                 await updateProfile(authUserToUpdate, authProfileUpdatePayload);
             }
           }
+
+
         } else {
+           setLoadingMessage("Skapar användarprofil...");
            const initialDisplayName = user.displayName || '';
            await setDoc(userDocRef, {
              uid: user.uid,
@@ -129,82 +139,98 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
 
   useEffect(() => {
-    if (!hasMounted) {
-      return;
-    }
-    console.log("AuthProvider onAuthStateChanged: Setting up listener with static auth instance.");
+    if (!hasMounted) return;
+
+    console.log("AuthProvider: Setting up onAuthStateChanged listener.");
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("AuthProvider onAuthStateChanged: User state -", user ? user.uid : null, "DisplayName:", user?.displayName);
-      setCurrentUser(user); 
+      console.log("AuthProvider onAuthStateChanged: User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
+      setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
+        // Clear user-specific data if no user is logged in
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
       }
-      setLoading(false); 
+      setInitialAuthCheckDone(true);
+      setLoadingMessage("Autentisering klar.");
+    }, (error) => {
+        console.error("AuthProvider onAuthStateChanged error:", error);
+        setCurrentUser(null); // Ensure user is cleared on auth error
+        setSubscription(null);
+        setMainBoardId(null);
+        setBoardOrder(null);
+        setInitialAuthCheckDone(true); 
+        setLoadingMessage("Autentiseringsfel.");
     });
 
-    return unsubscribe;
+    return () => {
+      console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
+      unsubscribe();
+    };
   }, [hasMounted, fetchUserData]);
 
 
   const signUp = async (email: string, password: string, name: string) => {
+    setLoadingMessage("Registrerar konto...");
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName: name });
-      const updatedUser = { ...userCredential.user, displayName: name } as User;
-      setCurrentUser(updatedUser); 
-      await fetchUserData(updatedUser); 
+      // Firestore document creation is now handled by fetchUserData triggered by onAuthStateChanged
     }
+    setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
   };
 
-  const logIn = (email: string, password: string) => {
+  const logIn = async (email: string, password: string) => {
+    setLoadingMessage("Loggar in...");
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const logOut = async () => {
+    setLoadingMessage("Loggar ut...");
     await signOut(auth);
-    setCurrentUser(null); 
-    setSubscription(null);
-    setMainBoardId(null);
-    setBoardOrder(null);
+    // State updates (currentUser, subscription etc.) will be handled by onAuthStateChanged
     router.push('/logga-in'); 
+    setLoadingMessage("Utloggad.");
   };
 
   const sendPasswordReset = async (email: string) => {
+    console.log(`AuthContext: Attempting to send password reset for ${email}`); // Diagnostic log
     return sendPasswordResetEmail(auth, email);
   };
 
   const refreshUserData = useCallback(async () => {
-    setLoading(true);
-    if (currentUser) { 
-      await fetchUserData(currentUser);
+    if (auth.currentUser) { // Use auth.currentUser directly from the imported instance
+      setLoadingMessage("Uppdaterar användardata...");
+      await fetchUserData(auth.currentUser);
+      setLoadingMessage("Användardata uppdaterad.");
     } else {
-      await fetchUserData(null);
+      setLoadingMessage("Ingen användare inloggad för uppdatering.");
+      await fetchUserData(null); // Ensure local state is cleared if no user
     }
-    setLoading(false);
-  }, [currentUser, fetchUserData]);
+  }, [fetchUserData]);
 
+  // Overall loading state for the provider
+  const loading = !hasMounted || !initialAuthCheckDone;
 
   if (!hasMounted) {
-    return null;
+    return null; // Render nothing on the server or first client render pass
   }
   
   if (loading) { 
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-2 text-lg">Laddar...</p>
+        {/* Loader2 icon removed from this dynamic loading block to simplify hydration for now */}
+        <p className="ml-2">{loadingMessage}</p>
       </div>
     );
   }
 
   const value = {
     currentUser,
-    loading,
+    loading, // This refers to the overall provider loading state
     subscription,
     mainBoardId,
     boardOrder,
