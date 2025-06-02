@@ -108,12 +108,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, [auth]); // Added auth to dependency array
+  }, [auth]);
 
   useEffect(() => {
     if (!hasMounted) {
       return;
     }
+    console.log("AuthProvider: Setting up onAuthStateChanged listener."); // Added console log
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
@@ -126,7 +127,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData, hasMounted, auth]); // Added auth to dependency array
+  }, [fetchUserData, hasMounted, auth]);
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
