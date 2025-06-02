@@ -1,5 +1,5 @@
 
-import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app"; // Added FirebaseApp type
+import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -17,14 +17,14 @@ const firebaseConfig: FirebaseOptions = {
 
 let app: FirebaseApp; // Explicitly type the app instance
 
-console.log("Firebase module (src/lib/firebase.ts) evaluating..."); // Diagnostic log
+console.log("Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint)..."); // Updated diagnostic log
 
 if (!getApps().length) {
-  console.log("Initializing new Firebase app...");
+  console.log("Initializing new Firebase app instance...");
   app = initializeApp(firebaseConfig);
 } else {
-  console.log("Getting existing Firebase app...");
-  app = getApp();
+  console.log("Getting existing Firebase app instance...");
+  app = getApp() as FirebaseApp; // Added type assertion for clarity
 }
 
 const authInstance = getAuth(app);
