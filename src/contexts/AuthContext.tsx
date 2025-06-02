@@ -3,8 +3,8 @@
 
 import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
-// Firebase Auth types and functions - type imports are fine
-import { type Auth, type User } from 'firebase/auth';
+// Firebase Auth types - type imports are fine
+import { type User } from 'firebase/auth';
 
 // Firebase Auth functions will be dynamically imported
 interface FirebaseAuthFunctions {
@@ -13,10 +13,10 @@ interface FirebaseAuthFunctions {
   signOut: typeof import('firebase/auth').signOut;
   onAuthStateChanged: typeof import('firebase/auth').onAuthStateChanged;
   sendPasswordResetEmail: typeof import('firebase/auth').sendPasswordResetEmail;
-  updateProfile: typeof import('firebase/auth').updateProfile; // Added for completeness
+  updateProfile: typeof import('firebase/auth').updateProfile;
 }
 
-import { auth as firebaseAppAuthInstance, db } from '@/lib/firebase'; // Renamed imported auth instance
+import { auth as firebaseAppAuthInstance, db } from '@/lib/firebase';
 import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -57,20 +57,19 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseAuth, setFirebaseAuth] = useState<FirebaseAuthFunctions | null>(null);
   const [authLoadingError, setAuthLoadingError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // True initially: waiting for mount, then auth functions, then auth state
+  const [loading, setLoading] = useState(true);
+  const [hasMounted, setHasMounted] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Initierar applikation...");
+
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
   const [boardOrder, setBoardOrder] = useState<string[] | null>(null);
-  const [hasMounted, setHasMounted] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Initierar applikation...");
+
   const router = useRouter();
 
-
   useEffect(() => {
-    console.log("AuthProvider Mount: Initializing. Current hasMounted:", hasMounted);
     setHasMounted(true);
-    // Dynamically import Firebase Auth functions to potentially mitigate HMR issues.
-    // This is where the "module factory is not available" error often occurs with HMR.
+    console.log("AuthProvider Mount: Attempting to dynamically import Firebase Auth functions.");
     import('firebase/auth').then((authModule) => {
       console.log("AuthProvider Mount: Firebase Auth functions dynamically imported successfully.");
       setFirebaseAuth({
@@ -81,31 +80,26 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         sendPasswordResetEmail: authModule.sendPasswordResetEmail,
         updateProfile: authModule.updateProfile,
       });
-      setAuthLoadingError(null); // Clear any previous error
+      setAuthLoadingError(null);
     }).catch(err => {
       console.error("AuthProvider Mount: Failed to load Firebase Auth module dynamically:", err);
-      setFirebaseAuth(null); // Explicitly set to null on error
+      setFirebaseAuth(null);
       setAuthLoadingError("Kunde inte ladda autentiseringstjänsten.");
-      setLoading(false); // Stop loading if auth module fails, app might be partly functional or show error
+      setLoading(false);
     });
-  }, []); // Empty dependency array, runs once on mount
+  }, []);
 
   useEffect(() => {
-    // This effect updates the loading message based on the current state,
-    // but only after the component has mounted.
-    if (hasMounted && loading) { // Only set client-side messages when mounted and loading
+    if (hasMounted && loading) {
       if (authLoadingError) {
         setLoadingMessage(authLoadingError);
       } else if (firebaseAuth) {
-        setLoadingMessage("Laddar autentisering..."); // Auth functions loaded, now waiting for user state
-      } else { // Still waiting for firebaseAuth dynamic import, no error yet
+        setLoadingMessage("Laddar autentisering...");
+      } else {
         setLoadingMessage("Väntar på autentiseringstjänst...");
       }
     }
-    // If !hasMounted, the initial message "Initierar applikation..." is used (see render logic).
-    // If !loading, the spinner isn't shown, so this message isn't visible.
   }, [hasMounted, loading, firebaseAuth, authLoadingError]);
-
 
   const fetchUserData = useCallback(async (user: User | null) => {
     if (user) {
@@ -121,30 +115,25 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           });
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
-
           if (user.displayName && (!userData.displayName || userData.displayName !== user.displayName)) {
             await updateDoc(userDocRef, { displayName: user.displayName });
           }
         } else {
-          if (firebaseAuth) { // Ensure firebaseAuth is loaded before trying to update profile
-             // Ensure user has displayName set in Auth, then create Firestore doc
-            const currentAuthUser = firebaseAppAuthInstance.currentUser; // Get fresh auth user
+          if (firebaseAuth) {
+            const currentAuthUser = firebaseAppAuthInstance.currentUser;
             let authDisplayName = user.displayName;
-
-            if (currentAuthUser && !currentAuthUser.displayName && user.displayName /* from initial user object */) {
-                 // This scenario is less likely if signUp already sets it, but as a fallback
-                try {
-                    await firebaseAuth.updateProfile(currentAuthUser, { displayName: user.displayName });
-                    authDisplayName = user.displayName; // Confirm it's set
-                } catch (profileError) {
-                    console.warn("Could not update Firebase Auth profile displayName during initial doc creation:", profileError);
-                }
+            if (currentAuthUser && !currentAuthUser.displayName && user.displayName) {
+              try {
+                await firebaseAuth.updateProfile(currentAuthUser, { displayName: user.displayName });
+                authDisplayName = user.displayName;
+              } catch (profileError) {
+                console.warn("Could not update Firebase Auth profile displayName during initial doc creation:", profileError);
+              }
             }
-
             await setDoc(userDocRef, {
               uid: user.uid,
               email: user.email,
-              displayName: authDisplayName || '', // Use the (potentially updated) authDisplayName
+              displayName: authDisplayName || '',
               createdAt: Timestamp.now(),
               subscriptionStatus: 'inactive',
               subscriptionExpiresAt: null,
@@ -156,13 +145,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             setBoardOrder(null);
           } else {
             console.warn("fetchUserData: firebaseAuth not loaded, cannot ensure displayName for new user doc.");
-             // Fallback to creating doc without definite displayName sync, onAuthStateChanged will re-run
             await setDoc(userDocRef, {
               uid: user.uid,
               email: user.email,
-              displayName: user.displayName || '', // Best effort
+              displayName: user.displayName || '',
               createdAt: Timestamp.now(),
-              // ... other default fields
             });
           }
         }
@@ -177,24 +164,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, [db, firebaseAuth, firebaseAppAuthInstance]); // Added firebaseAppAuthInstance
+  }, [db, firebaseAuth, firebaseAppAuthInstance]);
 
   useEffect(() => {
-    // This effect sets up the onAuthStateChanged listener.
-    // It waits for both `hasMounted` and `firebaseAuth` (dynamic import) to be ready.
     if (!hasMounted || !firebaseAuth) {
       console.log("AuthProvider onAuthStateChanged: Waiting for mount or Firebase Auth functions. hasMounted:", hasMounted, "firebaseAuth loaded:", !!firebaseAuth);
-      if (hasMounted && authLoadingError) { // If mount is done but auth functions failed to load
-        setLoading(false); // Stop overall loading, error message will be shown by loadingMessage
-      } else if (hasMounted && !firebaseAuth) {
-        // Mounted, but dynamic import not yet finished (and no error yet)
-        // `loading` remains true, message is "Väntar på autentiseringstjänst..."
-      } else {
-        // Not mounted yet, `loading` remains true, message is "Initierar applikation..."
+      if (hasMounted && authLoadingError) {
+        setLoading(false);
       }
       return;
     }
-    console.log("AuthProvider onAuthStateChanged: Setting up listener with imported functions and auth instance:", firebaseAppAuthInstance);
+    console.log("AuthProvider onAuthStateChanged: Setting up listener with auth instance:", firebaseAppAuthInstance);
     const unsubscribe = firebaseAuth.onAuthStateChanged(firebaseAppAuthInstance, async (user) => {
       console.log("AuthProvider onAuthStateChanged: User state -", user ? user.uid : null);
       setCurrentUser(user);
@@ -205,31 +185,18 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setMainBoardId(null);
         setBoardOrder(null);
       }
-      setLoading(false); // Auth state resolved (user or null), and Firebase Auth functions are loaded
+      setLoading(false);
     });
     return unsubscribe;
   }, [fetchUserData, hasMounted, firebaseAuth, firebaseAppAuthInstance, authLoadingError]);
-
-
-  const refreshUserData = useCallback(async () => {
-    if (currentUser) {
-      setLoading(true);
-      await fetchUserData(currentUser);
-      setLoading(false);
-    }
-  }, [currentUser, fetchUserData]);
 
   const signUp = async (email: string, password: string, name: string) => {
     if (!firebaseAuth) throw new Error("Firebase Auth functions not initialized for signUp");
     const userCredential = await firebaseAuth.createUserWithEmailAndPassword(firebaseAppAuthInstance, email, password);
     if (userCredential.user) {
       await firebaseAuth.updateProfile(userCredential.user, { displayName: name });
-      // Firestore document creation is handled by fetchUserData via onAuthStateChanged.
-      // To ensure displayName is available for fetchUserData, we update the auth profile first.
-      // Then, we can call fetchUserData directly or let onAuthStateChanged handle it.
-      // For immediate effect if onAuthStateChanged is slow:
       const userWithProfile = { ...userCredential.user, displayName: name };
-      await fetchUserData(userWithProfile as User); // Cast because displayName might not be on type yet
+      await fetchUserData(userWithProfile as User);
     }
     return userCredential;
   };
@@ -261,23 +228,33 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     return firebaseAuth.sendPasswordResetEmail(firebaseAppAuthInstance, email);
   };
 
-  // --- Render Logic ---
+  const refreshUserData = useCallback(async () => {
+    if (currentUser) {
+      setLoading(true);
+      await fetchUserData(currentUser);
+      setLoading(false);
+    }
+  }, [currentUser, fetchUserData]);
+
+  // Render Logic:
 
   // Case 1: Server-side rendering OR very first client render before `hasMounted` effect runs.
-  // Message is hardcoded to match server.
+  // This block ensures the initial HTML is consistent for hydration.
+  // The Loader2 icon is removed here to simplify the initial static render,
+  // as SVG rendering (especially with animations) can sometimes contribute to hydration mismatches.
   if (!hasMounted) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        {/* Loader2 icon removed from this initial static block */}
         <p className="ml-2">Initierar applikation...</p>
       </div>
     );
   }
 
-  // Case 2: Client-side, component has mounted (`hasMounted` is true), but still loading
+  // Case 2: Client-side, component has mounted, but still loading
   // (either waiting for dynamic import of firebaseAuth, or waiting for onAuthStateChanged).
-  // Message comes from `loadingMessage` state, which is updated by `useEffect`.
-  if (loading) { // `loading` is true if dynamic import in progress OR onAuthStateChanged pending
+  // Now we can safely render the Loader2 icon.
+  if (hasMounted && loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -289,7 +266,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   // Case 3: Client-side, mounted, and all loading is complete.
   const value = {
     currentUser,
-    loading, // This will be false here
+    loading,
     subscription,
     mainBoardId,
     boardOrder,
