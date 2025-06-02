@@ -1,15 +1,22 @@
 
 "use client";
 
-// Firebase Auth import moved to the top
-import { type User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updateProfile } from 'firebase/auth';
+// Firebase Auth import changed to come from @/lib/firebase
+import {
+  type User,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile,
+  auth, // auth instance is also exported from @/lib/firebase
+} from '@/lib/firebase';
 import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
-import { auth, db } from '@/lib/firebase'; // auth is the initialized Auth instance
+import { db } from '@/lib/firebase'; // db is fine as is
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-// Loader2 icon removed from this file as it was causing hydration issues in loading state
-// import { Loader2 } from 'lucide-react'; 
 
 interface SubscriptionInfo {
   status: 'active' | 'inactive' | 'trial' | null;
@@ -44,10 +51,10 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined); // undefined initially to distinguish from null (no user)
+  const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined);
   const [hasMounted, setHasMounted] = useState(false);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Laddar applikation..."); // Simplified initial message
+  const [loadingMessage, setLoadingMessage] = useState("Laddar applikation...");
 
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
@@ -76,29 +83,22 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
 
-          // Sync Auth profile with Firestore if necessary
-          const authUserToUpdate = auth.currentUser;
+          const authUserToUpdate = auth.currentUser; // Use the imported auth instance
           if (authUserToUpdate) {
             let firestoreUpdates: any = {};
             let authProfileNeedsUpdate = false;
             let authProfileUpdatePayload: { displayName?: string | null; photoURL?: string | null } = {};
 
-            // Scenario 1: Auth has displayName, Firestore doesn't or differs -> Update Firestore
             if (authUserToUpdate.displayName && authUserToUpdate.displayName !== (userData.displayName || '')) {
               firestoreUpdates.displayName = authUserToUpdate.displayName;
-            }
-            // Scenario 2: Firestore has displayName, Auth doesn't or differs -> Update Auth
-            else if (userData.displayName && userData.displayName !== (authUserToUpdate.displayName || '')) {
+            } else if (userData.displayName && userData.displayName !== (authUserToUpdate.displayName || '')) {
               authProfileUpdatePayload.displayName = userData.displayName;
               authProfileNeedsUpdate = true;
             }
 
-            // Scenario 1: Auth has photoURL, Firestore doesn't or differs -> Update Firestore
             if (authUserToUpdate.photoURL && authUserToUpdate.photoURL !== (userData.photoURL || null)) {
               firestoreUpdates.photoURL = authUserToUpdate.photoURL;
-            }
-            // Scenario 2: Firestore has photoURL, Auth doesn't or differs -> Update Auth
-            else if (userData.photoURL && userData.photoURL !== (authUserToUpdate.photoURL || null)) {
+            } else if (userData.photoURL && userData.photoURL !== (authUserToUpdate.photoURL || null)) {
               authProfileUpdatePayload.photoURL = userData.photoURL;
               authProfileNeedsUpdate = true;
             }
@@ -111,15 +111,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             }
           }
         } else {
-          // User exists in Auth but not Firestore, create Firestore document
           setLoadingMessage("Skapar användarprofil...");
-          const initialDisplayName = user.displayName || ''; // Use name from Auth if available
+          const initialDisplayName = user.displayName || '';
           await setDoc(userDocRef, {
             uid: user.uid,
             email: user.email,
             displayName: initialDisplayName,
             photoURL: user.photoURL || null,
-            createdAt: serverTimestamp(), // Use serverTimestamp
+            createdAt: serverTimestamp(),
             subscriptionStatus: 'inactive',
             subscriptionExpiresAt: null,
             mainBoardId: null,
@@ -136,7 +135,6 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setBoardOrder(null);
       }
     } else {
-      // No user, clear all user-specific data
       setSubscription(null);
       setMainBoardId(null);
       setBoardOrder(null);
@@ -145,17 +143,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
 
   useEffect(() => {
-    if (!hasMounted) return; // Ensure this runs only on client and after initial mount
+    if (!hasMounted) return;
 
     setLoadingMessage("Sätter upp autentiseringslyssnare...");
-    console.log("AuthProvider: Setting up onAuthStateChanged listener with static imports.");
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("AuthProvider onAuthStateChanged (static): User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
+    console.log("AuthProvider: Setting up onAuthStateChanged listener using re-exported functions.");
+    const unsubscribe = onAuthStateChanged(auth, async (user) => { // Use imported auth instance
+      console.log("AuthProvider onAuthStateChanged (re-exported): User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
-        // Clear user-specific data if no user is logged in
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -163,8 +160,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setInitialAuthCheckDone(true);
       setLoadingMessage("Autentisering klar.");
     }, (error) => {
-        console.error("AuthProvider onAuthStateChanged error (static):", error);
-        setCurrentUser(null); // Ensure user is cleared on auth error
+        console.error("AuthProvider onAuthStateChanged error (re-exported):", error);
+        setCurrentUser(null);
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -173,20 +170,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     });
 
     return () => {
-      console.log("AuthProvider: Cleaning up onAuthStateChanged listener (static).");
+      console.log("AuthProvider: Cleaning up onAuthStateChanged listener (re-exported).");
       unsubscribe();
     };
-  }, [hasMounted, fetchUserData]); // Added fetchUserData to dependency array
+  }, [hasMounted, fetchUserData]);
 
 
   const signUp = async (email: string, password: string, name: string) => {
     setLoadingMessage("Registrerar konto...");
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password); // Use imported auth instance
     if (userCredential.user) {
-      // Update Firebase Auth profile immediately
       await updateProfile(userCredential.user, { displayName: name });
-      // Firestore document creation will be handled by fetchUserData triggered by onAuthStateChanged
-      // This ensures displayName from Auth is available when creating the Firestore doc
     }
     setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
@@ -194,47 +188,41 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   const logIn = async (email: string, password: string) => {
     setLoadingMessage("Loggar in...");
-    return signInWithEmailAndPassword(auth, email, password);
+    return signInWithEmailAndPassword(auth, email, password); // Use imported auth instance
   };
 
   const logOut = async () => {
     setLoadingMessage("Loggar ut...");
-    await signOut(auth);
-    // State updates (currentUser, subscription etc.) will be handled by onAuthStateChanged
+    await signOut(auth); // Use imported auth instance
     router.push('/logga-in');
     setLoadingMessage("Utloggad.");
   };
 
   const sendPasswordReset = async (email: string) => {
-    console.log(`AuthContext: Attempting to send password reset for ${email} using static import.`);
-    return sendPasswordResetEmail(auth, email);
+    console.log(`AuthContext: Attempting to send password reset for ${email} using re-exported function.`);
+    return sendPasswordResetEmail(auth, email); // Use imported auth instance
   };
 
   const refreshUserData = useCallback(async () => {
-    if (auth.currentUser) {
+    if (auth.currentUser) { // Use imported auth instance
       setLoadingMessage("Uppdaterar användardata...");
       await fetchUserData(auth.currentUser);
       setLoadingMessage("Användardata uppdaterad.");
     } else {
       setLoadingMessage("Ingen användare inloggad för uppdatering.");
-      await fetchUserData(null); // Ensure local state is cleared if no user
+      await fetchUserData(null);
     }
   }, [fetchUserData]);
 
-  // Overall loading state for the provider
   const loading = !hasMounted || !initialAuthCheckDone;
 
   if (!hasMounted) {
-    // On the server, or first client render pass before useEffect runs, render nothing or a minimal placeholder.
-    // This avoids hydration mismatches for client-specific loading states.
     return null;
   }
 
-  // Overall loading state for the provider, shown after mount but before initial auth check is done.
   if (loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        {/* Loader2 icon removed from this initial static block to ensure it doesn't cause hydration error based on previous diffs */}
         <p className="ml-2">{loadingMessage}</p>
       </div>
     );
@@ -242,7 +230,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   const value = {
     currentUser,
-    loading, // This refers to the overall provider loading state
+    loading,
     subscription,
     mainBoardId,
     boardOrder,

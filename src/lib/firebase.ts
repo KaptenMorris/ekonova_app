@@ -1,6 +1,15 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import {
+  getAuth,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile,
+  type User
+} from "firebase/auth"; // Added specific auth function imports
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
@@ -15,16 +24,16 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-let app: FirebaseApp; // Explicitly type the app instance
+let app: FirebaseApp;
 
-console.log("Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint)..."); // Updated diagnostic log
+console.log(`Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint - vFINAL - ${new Date().toISOString()})`);
 
 if (!getApps().length) {
   console.log("Initializing new Firebase app instance...");
   app = initializeApp(firebaseConfig);
 } else {
   console.log("Getting existing Firebase app instance...");
-  app = getApp() as FirebaseApp; // Added type assertion for clarity
+  app = getApp() as FirebaseApp;
 }
 
 const authInstance = getAuth(app);
@@ -45,4 +54,18 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { app, authInstance as auth, dbInstance as db, storageInstance as storage, analyticsInstance as analytics };
+export {
+  app,
+  authInstance as auth, // Keep existing auth instance export
+  dbInstance as db,
+  storageInstance as storage,
+  analyticsInstance as analytics,
+  // Re-export auth functions and User type
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updateProfile,
+  type User
+};
