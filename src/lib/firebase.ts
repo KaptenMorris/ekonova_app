@@ -1,7 +1,6 @@
 
 import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
-// import { getAuth, browserLocalPersistence, indexedDBLocalPersistence, initializeAuth } from "firebase/auth";
-import { getAuth } from "firebase/auth"; // Simplified import
+import { getAuth, browserLocalPersistence, indexedDBLocalPersistence, initializeAuth } from "firebase/auth"; // Added initializeAuth and persistence types
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage"; // If you plan to use Firebase Storage
 import { getAnalytics, isSupported } from "firebase/analytics"; // Added isSupported
@@ -19,7 +18,12 @@ const firebaseConfig: FirebaseOptions = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-const auth = getAuth(app); // Simplified initialization, relies on default persistence
+// Explicitly initialize Auth, this might help with HMR in some edge cases or provide more control.
+// Using default persistence order: indexedDB, then browserLocalPersistence.
+const auth = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence]
+});
+
 const db = getFirestore(app);
 const storage = getStorage(app); // If using storage
 
@@ -36,3 +40,4 @@ if (typeof window !== 'undefined') {
 }
 
 export { app, auth, db, storage, analytics };
+
