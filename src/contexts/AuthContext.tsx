@@ -3,21 +3,21 @@
 
 import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
-// Firebase Auth imports - attempting multi-line to see if it influences HMR
-import {
-  type Auth,
-  type User,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  sendPasswordResetEmail
-} from 'firebase/auth';
+import { type Auth, type User } from 'firebase/auth'; // Keep type imports
 
-import { auth, db } from '@/lib/firebase';
+import { auth as firebaseAppAuthInstance, db } from '@/lib/firebase'; // Renamed to avoid conflict with local 'auth' state
 import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+
+// Define the shape of the dynamically imported Firebase Auth functions
+interface FirebaseAuthFunctions {
+  createUserWithEmailAndPassword: typeof import('firebase/auth').createUserWithEmailAndPassword;
+  signInWithEmailAndPassword: typeof import('firebase/auth').signInWithEmailAndPassword;
+  signOut: typeof import('firebase/auth').signOut;
+  onAuthStateChanged: typeof import('firebase/auth').onAuthStateChanged;
+  sendPasswordResetEmail: typeof import('firebase/auth').sendPasswordResetEmail;
+}
 
 interface SubscriptionInfo {
   status: 'active' | 'inactive' | 'trial' | null;
@@ -53,6 +53,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [firebaseAuth, setFirebaseAuth] = useState<FirebaseAuthFunctions | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
@@ -62,6 +63,20 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     setHasMounted(true);
+    // Dynamically import Firebase Auth functions to potentially mitigate HMR issues.
+    import('firebase/auth').then((authModule) => {
+      setFirebaseAuth({
+        createUserWithEmailAndPassword: authModule.createUserWithEmailAndPassword,
+        signInWithEmailAndPassword: authModule.signInWithEmailAndPassword,
+        signOut: authModule.signOut,
+        onAuthStateChanged: authModule.onAuthStateChanged,
+        sendPasswordResetEmail: authModule.sendPasswordResetEmail,
+      });
+    }).catch(err => {
+      console.error("Failed to load Firebase Auth module dynamically:", err);
+      // Handle the error appropriately, e.g., show a message to the user
+      setLoading(false); // Stop loading if module fails to load
+    });
   }, []);
 
   const fetchUserData = useCallback(async (user: User | null) => {
@@ -108,14 +123,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, [auth]);
+  }, []);
 
   useEffect(() => {
-    if (!hasMounted) {
+    if (!hasMounted || !firebaseAuth) {
+      // Wait for mount and for Firebase Auth functions to be loaded
+      setLoading(true); // Keep loading until firebaseAuth is ready
       return;
     }
-    console.log("AuthProvider: Setting up onAuthStateChanged listener."); // Added console log
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    console.log("AuthProvider: Setting up onAuthStateChanged listener.");
+    const unsubscribe = firebaseAuth.onAuthStateChanged(firebaseAppAuthInstance, async (user) => {
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
@@ -127,7 +144,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData, hasMounted, auth]);
+  }, [fetchUserData, hasMounted, firebaseAuth, firebaseAppAuthInstance]);
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
@@ -138,7 +155,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   }, [currentUser, fetchUserData]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    if (!firebaseAuth) throw new Error("Firebase Auth not initialized");
+    const userCredential = await firebaseAuth.createUserWithEmailAndPassword(firebaseAppAuthInstance, email, password);
     if (userCredential.user) {
       const userDocRef = doc(db, 'users', userCredential.user.uid);
       await setDoc(userDocRef, {
@@ -151,18 +169,27 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         mainBoardId: null,
         boardOrder: [],
       });
-      await refreshUserData();
+      await refreshUserData(); // Use the AuthContext's refreshUserData
     }
     return userCredential;
   };
 
   const logIn = (email: string, password: string) => {
-    return signInWithEmailAndPassword(auth, email, password);
+    if (!firebaseAuth) throw new Error("Firebase Auth not initialized");
+    return firebaseAuth.signInWithEmailAndPassword(firebaseAppAuthInstance, email, password);
   };
 
   const logOut = async () => {
+    if (!firebaseAuth) {
+      console.error("Firebase Auth not initialized for logout");
+      // Attempt to sign out with the main instance as a fallback, though it might not be ideal
+      await firebaseAppAuthInstance.signOut().catch(e => console.error("Fallback signout error:", e));
+      setCurrentUser(null);
+      router.push('/logga-in');
+      return;
+    }
     try {
-      await signOut(auth);
+      await firebaseAuth.signOut(firebaseAppAuthInstance);
       setCurrentUser(null);
       router.push('/logga-in');
     } catch (error) {
@@ -171,18 +198,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   };
 
   const sendPasswordReset = async (email: string) => {
-    return sendPasswordResetEmail(auth, email);
+    if (!firebaseAuth) throw new Error("Firebase Auth not initialized");
+    return firebaseAuth.sendPasswordResetEmail(firebaseAppAuthInstance, email);
   };
 
-  if (!hasMounted) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (loading) {
+  if (!hasMounted || !firebaseAuth) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
