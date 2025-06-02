@@ -36,14 +36,14 @@ export default function RootLayout({
   }, []);
 
   useEffect(() => {
-    // Minor comment to ensure a change for HMR diagnostics
+    // Minor comment to ensure a change for HMR diagnostics - v3
     if (typeof window !== 'undefined') {
       document.title = 'Ekonova'; // Default title
     }
   }, []);
 
   return (
-    <html lang="sv" suppressHydrationWarning>
+    <html lang="sv" suppressHydrationWarning data-app-version="1.0.0">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -71,3 +71,4 @@ export default function RootLayout({
     </html>
   );
 }
+
