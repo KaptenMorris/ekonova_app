@@ -11,6 +11,7 @@ export default function HomePage() {
   const { currentUser, loading } = useAuth();
 
   useEffect(() => {
+    console.log("HomePage useEffect: Auth loading state:", loading, "CurrentUser:", !!currentUser); // Added for HMR diagnostics
     if (!loading) {
       if (currentUser) {
         router.replace('/dashboard');
