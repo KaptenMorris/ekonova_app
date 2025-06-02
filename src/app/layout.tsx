@@ -1,7 +1,7 @@
 
 "use client";
 
-// HMR Nudge Comment - vFINAL_LAYOUT_ATTEMPT_Y_PROVIDER_NEST - 2024-08-15T14:20:00Z
+// HMR Nudge Comment - vFINAL_LAYOUT_ATTEMPT_Z_PROVIDER_NEST - 2024-08-15T14:30:00Z
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from "@/components/ui/toaster";
@@ -18,6 +18,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  console.log(`RootLayout rendering/re-evaluating... (HMR Checkpoint vFINAL - ${new Date().toISOString()})`); // Diagnostic log
   useEffect(() => {
     // Service Worker registration logic
     if ('serviceWorker' in navigator) {
@@ -38,7 +39,7 @@ export default function RootLayout({
   }, []);
 
   return (
-    <html lang="sv" suppressHydrationWarning data-app-version="1.0.0-a">
+    <html lang="sv" suppressHydrationWarning data-app-version="1.0.0-a-final">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -67,3 +68,4 @@ export default function RootLayout({
     </html>
   );
 }
+
