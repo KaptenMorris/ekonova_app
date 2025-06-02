@@ -3,8 +3,7 @@
 
 import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
-import { type Auth, type User } from 'firebase/auth'; // Keep type imports
-import * as firebaseAuthFunctions from 'firebase/auth'; // Namespace import for functions
+import { type Auth, type User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'; // Reverted to direct named imports
 
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore';
@@ -100,13 +99,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, [auth]); // Added auth to dependency array
+  }, [auth]);
 
   useEffect(() => {
     if (!hasMounted) {
       return; 
     }
-    const unsubscribe = firebaseAuthFunctions.onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
@@ -118,7 +117,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData, hasMounted, auth]); // Added auth to dependency array
+  }, [fetchUserData, hasMounted, auth]);
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
@@ -129,7 +128,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   }, [currentUser, fetchUserData]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const userCredential = await firebaseAuthFunctions.createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       const userDocRef = doc(db, 'users', userCredential.user.uid);
       await setDoc(userDocRef, {
@@ -148,12 +147,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logIn = (email: string, password: string) => {
-    return firebaseAuthFunctions.signInWithEmailAndPassword(auth, email, password);
+    return signInWithEmailAndPassword(auth, email, password);
   };
 
   const logOut = async () => {
     try {
-      await firebaseAuthFunctions.signOut(auth);
+      await signOut(auth);
       setCurrentUser(null); 
       router.push('/logga-in');
     } catch (error) {
@@ -162,7 +161,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   };
 
   const sendPasswordReset = async (email: string) => {
-    return firebaseAuthFunctions.sendPasswordResetEmail(auth, email);
+    return sendPasswordResetEmail(auth, email);
   };
 
   if (!hasMounted) {
