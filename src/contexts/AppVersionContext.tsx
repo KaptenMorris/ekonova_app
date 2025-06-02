@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { doc, getDoc, updateDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './AuthContext'; // Assuming AuthContext provides currentUser
+import type { User } from 'firebase/auth'; // Import User type
 
 export interface AppVersion {
   id: string;
@@ -43,88 +44,74 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
   const [isLoadingVersionInfo, setIsLoadingVersionInfo] = useState(true);
   const [userLastSeenVersion, setUserLastSeenVersion] = useState<string | null>(null);
 
-  const fetchLatestVersion = useCallback(async () => {
-    if (authLoading || !currentUser) { // Ensure currentUser is also available
-      setIsLoadingVersionInfo(false);
-      // If auth is resolved and no user, we can't fetch version info (it's protected)
-      // but we don't explicitly clear latestVersionInfo here, let the calling useEffect handle it.
-      return;
-    }
-    setIsLoadingVersionInfo(true); // Set loading true at the start of an actual fetch attempt
+  const fetchLatestVersionAndUserStatus = useCallback(async (user: User) => {
+    setIsLoadingVersionInfo(true);
     try {
+      // Fetch latest version
       const versionDocRef = doc(db, 'appVersionInfo', 'latest');
       const versionDocSnap = await getDoc(versionDocRef);
+      let currentLatestVersion: AppVersion | null = null;
       if (versionDocSnap.exists()) {
         const data = versionDocSnap.data() as Omit<AppVersion, 'id'>;
         if (data.published) {
-          setLatestVersionInfo({ id: versionDocSnap.id, ...data });
-        } else {
-          setLatestVersionInfo(null);
+          currentLatestVersion = { id: versionDocSnap.id, ...data };
         }
-      } else {
-        setLatestVersionInfo(null);
-        console.log("No 'latest' app version document found.");
       }
-    } catch (error) {
-      console.error("Error fetching latest app version info:", error);
-      setLatestVersionInfo(null);
-    }
-    setIsLoadingVersionInfo(false);
-  }, [authLoading, currentUser]);
+      setLatestVersionInfo(currentLatestVersion);
 
-  const fetchUserLastSeenVersion = useCallback(async () => {
-    if (currentUser) {
-      // No need to set setIsLoadingVersionInfo here if fetchLatestVersion handles it
-      try {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setUserLastSeenVersion(userDocSnap.data()?.lastSeenAppVersion || null);
-        } else {
-          setUserLastSeenVersion(null);
-        }
-      } catch (error) {
-        console.error("Error fetching user's last seen app version:", error);
-        setUserLastSeenVersion(null);
+      // Fetch user's last seen version
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      let lastSeen: string | null = null;
+      if (userDocSnap.exists()) {
+        lastSeen = userDocSnap.data()?.lastSeenAppVersion || null;
       }
-    }
-  }, [currentUser]);
+      setUserLastSeenVersion(lastSeen);
 
-  useEffect(() => {
-    if (!authLoading && currentUser) { // Only fetch if auth is resolved AND there is a user
-        fetchLatestVersion();
-    } else if (!authLoading && !currentUser) { // If auth is resolved but no user, clear version info
-        setLatestVersionInfo(null);
-        setIsLoadingVersionInfo(false); // Ensure loading state is false if no user
-    }
-  }, [authLoading, currentUser, fetchLatestVersion]);
-
-  useEffect(() => {
-    if (!authLoading && currentUser) {
-      fetchUserLastSeenVersion();
-    } else if (!authLoading && !currentUser) {
-      setUserLastSeenVersion(null);
-    }
-  }, [authLoading, currentUser, fetchUserLastSeenVersion]);
-
-
-  useEffect(() => {
-    if (!isLoadingVersionInfo && !authLoading && currentUser && latestVersionInfo) {
-      if (latestVersionInfo.version !== userLastSeenVersion) {
+      // Determine if dialog should be shown
+      if (currentLatestVersion && currentLatestVersion.version !== lastSeen) {
         setShowWhatsNewDialog(true);
       } else {
         setShowWhatsNewDialog(false);
       }
-    } else {
+
+    } catch (error) {
+      console.error("Error fetching latest app version or user's last seen version:", error);
+      setLatestVersionInfo(null);
+      setUserLastSeenVersion(null);
       setShowWhatsNewDialog(false);
+    } finally {
+      setIsLoadingVersionInfo(false);
     }
-  }, [isLoadingVersionInfo, authLoading, currentUser, latestVersionInfo, userLastSeenVersion]);
+  }, []);
+
+
+  useEffect(() => {
+    if (authLoading) {
+      // If auth is still loading, we wait. isLoadingVersionInfo should remain true or be managed by subsequent states.
+      // Ensure isLoadingVersionInfo is true if we haven't determined user status yet.
+      if (!currentUser) setIsLoadingVersionInfo(true);
+      return;
+    }
+
+    if (currentUser) {
+      fetchLatestVersionAndUserStatus(currentUser);
+    } else {
+      // No user, reset version-related states and indicate loading is done
+      setLatestVersionInfo(null);
+      setUserLastSeenVersion(null);
+      setShowWhatsNewDialog(false);
+      setIsLoadingVersionInfo(false);
+    }
+  }, [authLoading, currentUser, fetchLatestVersionAndUserStatus]);
+
 
   const closeWhatsNewDialog = useCallback(async () => {
     setShowWhatsNewDialog(false);
     if (currentUser && latestVersionInfo && latestVersionInfo.version !== userLastSeenVersion) {
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
+        // Use setDoc with merge:true to create or update
         await setDoc(userDocRef, { lastSeenAppVersion: latestVersionInfo.version }, { merge: true });
         setUserLastSeenVersion(latestVersionInfo.version);
       } catch (error) {
