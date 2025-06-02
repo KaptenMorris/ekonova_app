@@ -1,4 +1,5 @@
 
+// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_X - 2024-08-15T12:00:00Z
 import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import {
   getAuth,
@@ -8,13 +9,13 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-  type User
-} from "firebase/auth"; // Added specific auth function imports
+  type User,
+  type Auth // Import Auth type
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
-// HMR Nudge Comment - vFINAL_LIB - 2024-08-14T12:34:56Z
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -27,18 +28,30 @@ const firebaseConfig: FirebaseOptions = {
 };
 
 let app: FirebaseApp;
+let initializedAuthInstance: Auth | null = null; // Singleton instance
 
-console.log(`Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint - vFINAL - ${new Date().toISOString()})`);
+console.log(`Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint - vFINAL_AUTH_INSTANCE_REFACTOR - ${new Date().toISOString()})`);
 
 if (!getApps().length) {
-  console.log("Initializing new Firebase app instance...");
+  console.log("src/lib/firebase.ts: Initializing new Firebase app instance...");
   app = initializeApp(firebaseConfig);
 } else {
-  console.log("Getting existing Firebase app instance...");
-  app = getApp() as FirebaseApp; // Type assertion
+  console.log("src/lib/firebase.ts: Getting existing Firebase app instance...");
+  app = getApp() as FirebaseApp;
 }
 
-const authInstance = getAuth(app);
+// Function to get the singleton Auth instance
+function getFirebaseAuthInstance(): Auth {
+  if (!initializedAuthInstance) {
+    console.log("src/lib/firebase.ts: Initializing Firebase Auth instance for the first time via getFirebaseAuthInstance...");
+    initializedAuthInstance = getAuth(app);
+  } else {
+    // console.log("src/lib/firebase.ts: Returning existing Firebase Auth instance via getFirebaseAuthInstance...");
+  }
+  return initializedAuthInstance;
+}
+
+
 const dbInstance = getFirestore(app);
 const storageInstance = getStorage(app);
 let analyticsInstance: Analytics | undefined;
@@ -49,7 +62,7 @@ if (typeof window !== 'undefined') {
       console.log("Firebase Analytics is supported, initializing...");
       analyticsInstance = getAnalytics(app);
     } else {
-      console.log("Firebase Analytics not supported or no measurementId.");
+      // console.log("Firebase Analytics not supported or no measurementId.");
     }
   }).catch(err => {
     console.error("Error checking Firebase Analytics support:", err);
@@ -58,7 +71,7 @@ if (typeof window !== 'undefined') {
 
 export {
   app,
-  authInstance as auth, // Keep existing auth instance export
+  getFirebaseAuthInstance, // Export the function to get the auth instance
   dbInstance as db,
   storageInstance as storage,
   analyticsInstance as analytics,
@@ -69,5 +82,6 @@ export {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-  type User
+  type User,
+  type Auth
 };

@@ -1,8 +1,10 @@
 
 "use client";
 
-// HMR Nudge Comment - vFINAL_AUTH_CTX_ATTEMPT_Y - 2024-08-15T14:20:00Z
-// Firebase Auth functions are now imported from @/lib/firebase
+// HMR Nudge Comment - vFINAL_AUTH_CTX_ATTEMPT_Z_INSTANCE_REFACTOR - 2024-08-15T15:00:00Z
+// Firebase Auth import moved to the top (previous attempt, kept for structure)
+// Auth functions are now imported from @/lib/firebase, which re-exports them
+// The initialized `auth` instance is now also fetched via a function from @/lib/firebase
 import {
   type User,
   onAuthStateChanged,
@@ -11,11 +13,12 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-  auth, // auth instance is also exported from @/lib/firebase
+  getFirebaseAuthInstance, // Import the function to get the auth instance
+  db, // Keep db import
+  type Auth // Import Auth type
 } from '@/lib/firebase';
 import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
-import { db } from '@/lib/firebase'; // db is fine as is
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -53,7 +56,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined); // undefined means initial state, null means no user
+  const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined);
   const [hasMounted, setHasMounted] = useState(false);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Laddar applikation...");
@@ -63,13 +66,23 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [boardOrder, setBoardOrder] = useState<string[] | null>(null);
 
   const router = useRouter();
+  
+  // Get the auth instance once when the provider mounts, or as needed
+  // This approach ensures we are using the instance managed by lib/firebase.ts
+  const [auth, setAuth] = useState<Auth | null>(null);
 
   useEffect(() => {
     setHasMounted(true);
-  }, []);
+    // Initialize auth instance when component mounts
+    // This should only run once
+    if (!auth) {
+      console.log("AuthProvider: Fetching Firebase Auth instance...");
+      setAuth(getFirebaseAuthInstance());
+    }
+  }, [auth]); // Effect depends on auth to run once after initial setAuth(null)
 
-  const fetchUserData = useCallback(async (user: User | null) => {
-    if (user) {
+  const fetchUserData = useCallback(async (user: User | null, currentAuth: Auth | null) => {
+    if (user && currentAuth) { // Check if currentAuth is available
       try {
         setLoadingMessage("Hämtar användardata...");
         const userDocRef = doc(db, 'users', user.uid);
@@ -85,17 +98,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
 
-          // Sync Firebase Auth profile if Firestore has a more "canonical" name/photoURL, or vice-versa
-          const authUserToUpdate = auth.currentUser; // Use imported auth instance
+          const authUserToUpdate = currentAuth.currentUser;
           if (authUserToUpdate) {
             let firestoreUpdates: any = {};
             let authProfileNeedsUpdate = false;
             let authProfileUpdatePayload: { displayName?: string | null; photoURL?: string | null } = {};
 
-            // Sync display name
             const firestoreDisplayName = userData.displayName || '';
             const authDisplayName = authUserToUpdate.displayName || '';
-
             if (firestoreDisplayName && firestoreDisplayName !== authDisplayName) {
               authProfileUpdatePayload.displayName = firestoreDisplayName;
               authProfileNeedsUpdate = true;
@@ -103,10 +113,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
               firestoreUpdates.displayName = authDisplayName;
             }
 
-            // Sync photo URL
             const firestorePhotoURL = userData.photoURL || null;
             const authPhotoURL = authUserToUpdate.photoURL || null;
-
             if (firestorePhotoURL && firestorePhotoURL !== authPhotoURL) {
               authProfileUpdatePayload.photoURL = firestorePhotoURL;
               authProfileNeedsUpdate = true;
@@ -115,7 +123,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             }
             
             if (Object.keys(firestoreUpdates).length > 0) {
-               firestoreUpdates.updatedAt = serverTimestamp(); // Ensure updatedAt is set for any Firestore update
+               firestoreUpdates.updatedAt = serverTimestamp();
               await updateDoc(userDocRef, firestoreUpdates);
             }
             if (authProfileNeedsUpdate && Object.keys(authProfileUpdatePayload).length > 0) {
@@ -130,7 +138,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             email: user.email,
             displayName: initialDisplayName,
             photoURL: user.photoURL || null,
-            createdAt: serverTimestamp(), // Corrected usage
+            createdAt: serverTimestamp(),
             subscriptionStatus: 'inactive',
             subscriptionExpiresAt: null,
             mainBoardId: null,
@@ -155,18 +163,19 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
 
   useEffect(() => {
-    // HMR Diagnostic Comment for useEffect - v202408151420
-    if (!hasMounted) return;
+    if (!hasMounted || !auth) { // Wait for both mount and auth instance
+        if (hasMounted && !auth) console.log("AuthProvider onAuthStateChanged: Waiting for auth instance to be set...");
+        return;
+    }
 
     setLoadingMessage("Sätter upp autentiseringslyssnare...");
-    console.log("AuthProvider: Setting up onAuthStateChanged listener (HMR Test - Main Effect).");
-    const unsubscribe = onAuthStateChanged(auth, async (user) => { // Use imported auth instance
+    console.log("AuthProvider: Setting up onAuthStateChanged listener with auth instance.");
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("AuthProvider onAuthStateChanged: User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
       setCurrentUser(user);
       if (user) {
-        await fetchUserData(user);
+        await fetchUserData(user, auth); // Pass the auth instance
       } else {
-        // Clear user-specific data when logged out
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -175,7 +184,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoadingMessage("Autentisering klar.");
     }, (error) => {
         console.error("AuthProvider onAuthStateChanged error:", error);
-        setCurrentUser(null); // Ensure currentUser is null on error
+        setCurrentUser(null);
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -187,65 +196,78 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
       unsubscribe();
     };
-  }, [hasMounted, fetchUserData]);
+  }, [hasMounted, fetchUserData, auth]); // Depend on auth instance
 
 
   const signUp = async (email: string, password: string, name: string) => {
+    if (!auth) throw new Error("Firebase Auth instance not initialized for signUp.");
     setLoadingMessage("Registrerar konto...");
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password); // Use imported auth instance
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
-      // Update Firebase Auth profile immediately
       await updateProfile(userCredential.user, { displayName: name });
-      // fetchUserData will be called by onAuthStateChanged, which will handle Firestore doc creation
     }
     setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
   };
 
   const logIn = async (email: string, password: string) => {
+    if (!auth) throw new Error("Firebase Auth instance not initialized for logIn.");
     setLoadingMessage("Loggar in...");
-    return signInWithEmailAndPassword(auth, email, password); // Use imported auth instance
+    return signInWithEmailAndPassword(auth, email, password);
   };
 
   const logOut = async () => {
+    if (!auth) {
+        console.warn("Firebase Auth instance not available for logOut, but proceeding with UI changes.");
+        // Proceed to clear local state and redirect even if auth instance is somehow missing
+        // to avoid getting stuck.
+        setCurrentUser(null);
+        setSubscription(null);
+        setMainBoardId(null);
+        setBoardOrder(null);
+        router.push('/logga-in');
+        setLoadingMessage("Utloggad (auth instance var null).");
+        return;
+    }
     setLoadingMessage("Loggar ut...");
-    await signOut(auth); // Use imported auth instance
-    // onAuthStateChanged will handle setting currentUser to null and clearing user data
-    router.push('/logga-in'); // Navigate after sign out
+    await signOut(auth);
+    router.push('/logga-in');
     setLoadingMessage("Utloggad.");
   };
 
   const sendPasswordReset = async (email: string) => {
-    console.log(`AuthContext: Attempting to send password reset for ${email}.`);
-    return sendPasswordResetEmail(auth, email); // Use imported auth instance
+    if (!auth) throw new Error("Firebase Auth instance not initialized for sendPasswordReset.");
+    console.log(`AuthContext: Attempting to send password reset for ${email}. (HMR Test Comment V_INSTANCE_REFACTOR)`);
+    return sendPasswordResetEmail(auth, email);
   };
 
   const refreshUserData = useCallback(async () => {
-    if (auth.currentUser) { // Use imported auth instance
+    if (!auth) {
+        console.warn("Firebase Auth instance not available for refreshUserData.");
+        setLoadingMessage("Kunde inte uppdatera: auth-instans saknas.");
+        return;
+    }
+    const currentAuthUser = auth.currentUser;
+    if (currentAuthUser) {
       setLoadingMessage("Uppdaterar användardata...");
-      await fetchUserData(auth.currentUser);
+      await fetchUserData(currentAuthUser, auth); // Pass auth instance
       setLoadingMessage("Användardata uppdaterad.");
     } else {
       setLoadingMessage("Ingen användare inloggad för uppdatering.");
-      await fetchUserData(null); // This will clear local user data if user is somehow null
+      await fetchUserData(null, auth); // Pass auth instance
     }
-  }, [fetchUserData]); // fetchUserData is stable due to useCallback
+  }, [fetchUserData, auth]);
 
-  // loading should be true until initial auth check is done AND hasMounted is true.
-  const loading = !hasMounted || !initialAuthCheckDone;
+  const loading = !hasMounted || !initialAuthCheckDone || !auth; // Also consider auth instance loading
 
-  // Render null on the server and during initial client mount until `hasMounted` is true.
-  // This helps prevent hydration mismatches for the initial loading UI.
   if (!hasMounted) {
     return null;
   }
 
-  // Show loading indicator if authentication is still processing after mount.
   if (loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        {/* Icon removed to simplify initial render after mount, to combat hydration errors */}
-        <p className="ml-2">{loadingMessage}</p>
+        <p className="ml-2">{loadingMessage || "Initierar applikation..."}</p>
       </div>
     );
   }
