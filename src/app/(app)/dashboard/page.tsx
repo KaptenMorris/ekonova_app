@@ -1263,25 +1263,23 @@ export default function DashboardPage() {
                   <CardTitle className="text-lg">Kategoriöversikt</CardTitle>
                   <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''}.</CardDescription>
                 </div>
-                {boards.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="category-edit-mode"
-                      checked={isCategoryEditMode}
-                      onCheckedChange={setIsCategoryEditMode}
-                      disabled={!activeBoardId || !canEditActiveBoard || isLoadingBoardData}
-                    />
-                    <Label 
-                      htmlFor="category-edit-mode" 
-                      className={cn(
-                        "text-sm",
-                        (!activeBoardId || !canEditActiveBoard || isLoadingBoardData) && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      Redigera Kategorier
-                    </Label>
-                  </div>
-                )}
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="category-edit-mode"
+                    checked={isCategoryEditMode}
+                    onCheckedChange={setIsCategoryEditMode}
+                    disabled={!activeBoardId || !canEditActiveBoard || isLoadingBoardData}
+                  />
+                  <Label 
+                    htmlFor="category-edit-mode" 
+                    className={cn(
+                      "text-sm",
+                      (!activeBoardId || !canEditActiveBoard || isLoadingBoardData) && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    Redigera Kategorier
+                  </Label>
+                </div>
               </CardHeader>
               <CardContent className="grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 max-h-[300px] md:max-h-[400px] lg:max-h-[calc(100vh-600px)] overflow-y-auto">
                 <div>
