@@ -5,7 +5,7 @@ import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
 import { type Auth, type User } from 'firebase/auth'; // Keep type imports
 
-import { auth as firebaseAppAuthInstance, db } from '@/lib/firebase'; // Renamed to avoid conflict with local 'auth' state
+import { auth as firebaseAppAuthInstance, db } from '@/lib/firebase'; // Renamed to avoid conflict
 import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -63,8 +63,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     setHasMounted(true);
+    console.log("AuthProvider Mount: Attempting to dynamically import Firebase Auth functions...");
     // Dynamically import Firebase Auth functions to potentially mitigate HMR issues.
+    // This is where the "module factory is not available" error often occurs with HMR.
     import('firebase/auth').then((authModule) => {
+      console.log("AuthProvider Mount: Firebase Auth functions dynamically imported successfully.");
       setFirebaseAuth({
         createUserWithEmailAndPassword: authModule.createUserWithEmailAndPassword,
         signInWithEmailAndPassword: authModule.signInWithEmailAndPassword,
@@ -72,12 +75,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         onAuthStateChanged: authModule.onAuthStateChanged,
         sendPasswordResetEmail: authModule.sendPasswordResetEmail,
       });
+      // setLoading(false) is handled by the onAuthStateChanged effect after firebaseAuth is set.
     }).catch(err => {
-      console.error("Failed to load Firebase Auth module dynamically:", err);
-      // Handle the error appropriately, e.g., show a message to the user
-      setLoading(false); // Stop loading if module fails to load
+      console.error("AuthProvider Mount: Failed to load Firebase Auth module dynamically:", err);
+      // If dynamic import fails, the app might be stuck.
+      // Consider setting an error state or specific handling.
+      // For now, onAuthStateChanged effect will also not run if firebaseAuth is null.
     });
-  }, []);
+  }, []); // Empty dependency array, runs once on mount
 
   const fetchUserData = useCallback(async (user: User | null) => {
     if (user) {
@@ -123,39 +128,42 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, []);
+  }, [db]); // db instance from lib/firebase should be stable
 
   useEffect(() => {
     if (!hasMounted || !firebaseAuth) {
-      // Wait for mount and for Firebase Auth functions to be loaded
-      setLoading(true); // Keep loading until firebaseAuth is ready
+      // firebaseAuth being null means dynamic import hasn't completed or failed.
+      // Keep loading until firebaseAuth is set and onAuthStateChanged can be properly attached.
+      setLoading(true); 
       return;
     }
-    console.log("AuthProvider: Setting up onAuthStateChanged listener.");
+    console.log("AuthProvider: Setting up onAuthStateChanged listener with imported functions.");
     const unsubscribe = firebaseAuth.onAuthStateChanged(firebaseAppAuthInstance, async (user) => {
+      console.log("AuthProvider onAuthStateChanged: User state -", user ? user.uid : null);
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
       } else {
+        // Clear user-specific data if no user
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
       }
-      setLoading(false);
+      setLoading(false); // Auth state resolved, and associated data (or lack thereof) handled.
     });
     return unsubscribe;
   }, [fetchUserData, hasMounted, firebaseAuth, firebaseAppAuthInstance]);
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
-      setLoading(true);
+      // setLoading(true); // Consider if this intermediate loading state is disruptive or helpful
       await fetchUserData(currentUser);
-      setLoading(false);
+      // setLoading(false);
     }
   }, [currentUser, fetchUserData]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    if (!firebaseAuth) throw new Error("Firebase Auth not initialized");
+    if (!firebaseAuth) throw new Error("Firebase Auth functions not initialized for signUp");
     const userCredential = await firebaseAuth.createUserWithEmailAndPassword(firebaseAppAuthInstance, email, password);
     if (userCredential.user) {
       const userDocRef = doc(db, 'users', userCredential.user.uid);
@@ -169,43 +177,48 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         mainBoardId: null,
         boardOrder: [],
       });
-      await refreshUserData(); // Use the AuthContext's refreshUserData
+      // onAuthStateChanged will handle fetching user data and setting current user.
     }
     return userCredential;
   };
 
   const logIn = (email: string, password: string) => {
-    if (!firebaseAuth) throw new Error("Firebase Auth not initialized");
+    if (!firebaseAuth) throw new Error("Firebase Auth functions not initialized for logIn");
     return firebaseAuth.signInWithEmailAndPassword(firebaseAppAuthInstance, email, password);
   };
 
   const logOut = async () => {
     if (!firebaseAuth) {
-      console.error("Firebase Auth not initialized for logout");
-      // Attempt to sign out with the main instance as a fallback, though it might not be ideal
+      console.error("Firebase Auth functions not initialized for logout. Falling back to instance logout.");
       await firebaseAppAuthInstance.signOut().catch(e => console.error("Fallback signout error:", e));
-      setCurrentUser(null);
-      router.push('/logga-in');
-      return;
+    } else {
+      await firebaseAuth.signOut(firebaseAppAuthInstance).catch(e => {
+        console.error("Error logging out with dynamically imported signOut:", e);
+        return firebaseAppAuthInstance.signOut(); // Fallback
+      });
     }
-    try {
-      await firebaseAuth.signOut(firebaseAppAuthInstance);
-      setCurrentUser(null);
-      router.push('/logga-in');
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
+    // onAuthStateChanged will handle setCurrentUser(null) and other state cleanup.
+    router.push('/logga-in');
   };
 
   const sendPasswordReset = async (email: string) => {
-    if (!firebaseAuth) throw new Error("Firebase Auth not initialized");
+    if (!firebaseAuth) throw new Error("Firebase Auth functions not initialized for sendPasswordReset");
     return firebaseAuth.sendPasswordResetEmail(firebaseAppAuthInstance, email);
   };
 
-  if (!hasMounted || !firebaseAuth) {
+  if (!hasMounted) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  if (loading) { // This loading now covers initial mount, dynamic import, and auth state resolution.
+     return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-2">Laddar autentisering...</p>
       </div>
     );
   }
