@@ -1,7 +1,7 @@
 
 "use client";
 
-// Firebase Auth import changed to come from @/lib/firebase
+// Firebase Auth functions are now imported from @/lib/firebase
 import {
   type User,
   onAuthStateChanged,
@@ -17,6 +17,8 @@ import React, { createContext, useContext, useEffect, useCallback, useState } fr
 import { db } from '@/lib/firebase'; // db is fine as is
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+
+// HMR Nudge Comment - vFINAL_AUTH_CTX - 2024-08-14T12:34:56Z
 
 interface SubscriptionInfo {
   status: 'active' | 'inactive' | 'trial' | null;
@@ -51,10 +53,10 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined);
+  const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined); // undefined means initial state, null means no user
   const [hasMounted, setHasMounted] = useState(false);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Laddar applikation...");
+  const [loadingMessage, setLoadingMessage] = useState("Initierar applikation...");
 
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
@@ -83,24 +85,27 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
 
-          const authUserToUpdate = auth.currentUser; // Use the imported auth instance
+          // Sync Firebase Auth profile if Firestore has a more "canonical" name/photoURL, or vice-versa
+          const authUserToUpdate = auth.currentUser;
           if (authUserToUpdate) {
             let firestoreUpdates: any = {};
             let authProfileNeedsUpdate = false;
             let authProfileUpdatePayload: { displayName?: string | null; photoURL?: string | null } = {};
 
-            if (authUserToUpdate.displayName && authUserToUpdate.displayName !== (userData.displayName || '')) {
-              firestoreUpdates.displayName = authUserToUpdate.displayName;
-            } else if (userData.displayName && userData.displayName !== (authUserToUpdate.displayName || '')) {
+            // Sync display name
+            if (userData.displayName && userData.displayName !== (authUserToUpdate.displayName || '')) {
               authProfileUpdatePayload.displayName = userData.displayName;
               authProfileNeedsUpdate = true;
+            } else if (authUserToUpdate.displayName && authUserToUpdate.displayName !== (userData.displayName || '')) {
+              firestoreUpdates.displayName = authUserToUpdate.displayName;
             }
 
-            if (authUserToUpdate.photoURL && authUserToUpdate.photoURL !== (userData.photoURL || null)) {
-              firestoreUpdates.photoURL = authUserToUpdate.photoURL;
-            } else if (userData.photoURL && userData.photoURL !== (authUserToUpdate.photoURL || null)) {
+            // Sync photo URL
+            if (userData.photoURL && userData.photoURL !== (authUserToUpdate.photoURL || null)) {
               authProfileUpdatePayload.photoURL = userData.photoURL;
               authProfileNeedsUpdate = true;
+            } else if (authUserToUpdate.photoURL && authUserToUpdate.photoURL !== (userData.photoURL || null)) {
+              firestoreUpdates.photoURL = authUserToUpdate.photoURL;
             }
             
             if (Object.keys(firestoreUpdates).length > 0) {
@@ -153,6 +158,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       if (user) {
         await fetchUserData(user);
       } else {
+        // Clear user-specific data when logged out
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -161,7 +167,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoadingMessage("Autentisering klar.");
     }, (error) => {
         console.error("AuthProvider onAuthStateChanged error (re-exported):", error);
-        setCurrentUser(null);
+        setCurrentUser(null); // Ensure currentUser is null on error
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -180,7 +186,9 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     setLoadingMessage("Registrerar konto...");
     const userCredential = await createUserWithEmailAndPassword(auth, email, password); // Use imported auth instance
     if (userCredential.user) {
+      // Update Firebase Auth profile immediately
       await updateProfile(userCredential.user, { displayName: name });
+      // fetchUserData will be called by onAuthStateChanged, which will handle Firestore doc creation
     }
     setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
@@ -194,7 +202,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const logOut = async () => {
     setLoadingMessage("Loggar ut...");
     await signOut(auth); // Use imported auth instance
-    router.push('/logga-in');
+    // onAuthStateChanged will handle setting currentUser to null and clearing user data
+    router.push('/logga-in'); // Navigate after sign out
     setLoadingMessage("Utloggad.");
   };
 
@@ -210,16 +219,20 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoadingMessage("Användardata uppdaterad.");
     } else {
       setLoadingMessage("Ingen användare inloggad för uppdatering.");
-      await fetchUserData(null);
+      await fetchUserData(null); // This will clear local user data if user is somehow null
     }
-  }, [fetchUserData]);
+  }, [fetchUserData]); // fetchUserData is stable due to useCallback
 
+  // loading should be true until initial auth check is done AND hasMounted is true.
   const loading = !hasMounted || !initialAuthCheckDone;
 
+  // Render null on the server and during initial client mount until `hasMounted` is true.
+  // This helps prevent hydration mismatches for the initial loading UI.
   if (!hasMounted) {
     return null;
   }
 
+  // Show loading indicator if authentication is still processing after mount.
   if (loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -230,7 +243,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   const value = {
     currentUser,
-    loading,
+    loading, // This loading reflects the auth state, not the dynamic import anymore
     subscription,
     mainBoardId,
     boardOrder,

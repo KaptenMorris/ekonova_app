@@ -14,6 +14,8 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
+// HMR Nudge Comment - vFINAL_LIB - 2024-08-14T12:34:56Z
+
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -33,7 +35,7 @@ if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   console.log("Getting existing Firebase app instance...");
-  app = getApp() as FirebaseApp;
+  app = getApp() as FirebaseApp; // Type assertion
 }
 
 const authInstance = getAuth(app);
