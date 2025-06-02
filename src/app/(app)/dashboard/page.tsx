@@ -1263,19 +1263,19 @@ export default function DashboardPage() {
                   <CardTitle className="text-lg">Kategoriöversikt</CardTitle>
                   <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''}.</CardDescription>
                 </div>
-                {activeBoardId && (
+                {boards.length > 0 && (
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="category-edit-mode"
                       checked={isCategoryEditMode}
                       onCheckedChange={setIsCategoryEditMode}
-                      disabled={!canEditActiveBoard || isLoadingBoardData}
+                      disabled={!activeBoardId || !canEditActiveBoard || isLoadingBoardData}
                     />
                     <Label 
                       htmlFor="category-edit-mode" 
                       className={cn(
                         "text-sm",
-                        (!canEditActiveBoard || isLoadingBoardData) && "opacity-50 cursor-not-allowed"
+                        (!activeBoardId || !canEditActiveBoard || isLoadingBoardData) && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       Redigera Kategorier
