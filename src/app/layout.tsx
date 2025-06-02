@@ -12,6 +12,11 @@ import React, { useEffect } from 'react';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
+// export const metadata: Metadata = { // Metadata object is for Server Components, but this is "use client"
+//   title: 'Ekonova',
+//   description: 'Din personliga ekonomi app',
+// };
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,13 +36,14 @@ export default function RootLayout({
   }, []);
 
   useEffect(() => {
+    // Minor comment to ensure a change for HMR diagnostics
     if (typeof window !== 'undefined') {
       document.title = 'Ekonova'; // Default title
     }
   }, []);
 
   return (
-    <html lang="sv" suppressHydrationWarning>{/* Reverted lang to "sv" */}
+    <html lang="sv" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
