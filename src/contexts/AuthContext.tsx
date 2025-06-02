@@ -2,23 +2,22 @@
 "use client";
 
 // HMR Nudge Comment - vFINAL_AUTH_CTX_ATTEMPT_Z_INSTANCE_REFACTOR - 2024-08-15T15:00:00Z
-// Firebase Auth import moved to the top (previous attempt, kept for structure)
-// Auth functions are now imported from @/lib/firebase, which re-exports them
-// The initialized `auth` instance is now also fetched via a function from @/lib/firebase
+// HMR Nudge Comment - vFINAL_AUTH_CTX_ATTEMPT_Z_PERSISTENT_HMR_RETRY - 2024-08-15T16:01:00Z
+// HMR Nudge Comment - vFINAL_AUTH_CTX_ATTEMPT_Z_PERSISTENT_HMR_RETRY_V2 - 2024-08-15T16:15:00Z
+import type { ReactNode, FC } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
 import {
-  type User,
+  auth, // Directly import the initialized auth instance
+  db,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   updateProfile,
-  getFirebaseAuthInstance, // Import the function to get the auth instance
-  db, // Keep db import
-  type Auth // Import Auth type
+  type User,
+  type Auth as FirebaseAuthType // Import the Auth type
 } from '@/lib/firebase';
-import type { ReactNode, FC } from 'react';
-import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -66,23 +65,9 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [boardOrder, setBoardOrder] = useState<string[] | null>(null);
 
   const router = useRouter();
-  
-  // Get the auth instance once when the provider mounts, or as needed
-  // This approach ensures we are using the instance managed by lib/firebase.ts
-  const [auth, setAuth] = useState<Auth | null>(null);
 
-  useEffect(() => {
-    setHasMounted(true);
-    // Initialize auth instance when component mounts
-    // This should only run once
-    if (!auth) {
-      console.log("AuthProvider: Fetching Firebase Auth instance...");
-      setAuth(getFirebaseAuthInstance());
-    }
-  }, [auth]); // Effect depends on auth to run once after initial setAuth(null)
-
-  const fetchUserData = useCallback(async (user: User | null, currentAuth: Auth | null) => {
-    if (user && currentAuth) { // Check if currentAuth is available
+  const fetchUserData = useCallback(async (user: User | null) => {
+    if (user) {
       try {
         setLoadingMessage("Hämtar användardata...");
         const userDocRef = doc(db, 'users', user.uid);
@@ -98,7 +83,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
 
-          const authUserToUpdate = currentAuth.currentUser;
+          const authUserToUpdate = auth.currentUser; // Use imported auth from lib/firebase
           if (authUserToUpdate) {
             let firestoreUpdates: any = {};
             let authProfileNeedsUpdate = false;
@@ -163,19 +148,20 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
 
   useEffect(() => {
-    if (!hasMounted || !auth) { // Wait for both mount and auth instance
-        if (hasMounted && !auth) console.log("AuthProvider onAuthStateChanged: Waiting for auth instance to be set...");
-        return;
-    }
-
+    setHasMounted(true); // Component has mounted
+    
+    // `auth` instance is initialized when lib/firebase.ts is imported.
+    // If it failed there, an error would have been thrown, stopping execution.
     setLoadingMessage("Sätter upp autentiseringslyssnare...");
-    console.log("AuthProvider: Setting up onAuthStateChanged listener with auth instance.");
+    console.log("AuthProvider: Setting up onAuthStateChanged listener with directly imported auth instance.");
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("AuthProvider onAuthStateChanged: User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
       setCurrentUser(user);
       if (user) {
-        await fetchUserData(user, auth); // Pass the auth instance
+        await fetchUserData(user);
       } else {
+        // Clear user-specific data if user logs out
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -196,74 +182,61 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
       unsubscribe();
     };
-  }, [hasMounted, fetchUserData, auth]); // Depend on auth instance
+  }, [fetchUserData]); // Only fetchUserData as dependency, auth instance is stable
 
 
   const signUp = async (email: string, password: string, name: string) => {
-    if (!auth) throw new Error("Firebase Auth instance not initialized for signUp.");
     setLoadingMessage("Registrerar konto...");
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName: name });
+      // fetchUserData will be called by onAuthStateChanged
     }
     setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
   };
 
   const logIn = async (email: string, password: string) => {
-    if (!auth) throw new Error("Firebase Auth instance not initialized for logIn.");
     setLoadingMessage("Loggar in...");
+    // fetchUserData will be called by onAuthStateChanged
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const logOut = async () => {
-    if (!auth) {
-        console.warn("Firebase Auth instance not available for logOut, but proceeding with UI changes.");
-        // Proceed to clear local state and redirect even if auth instance is somehow missing
-        // to avoid getting stuck.
-        setCurrentUser(null);
-        setSubscription(null);
-        setMainBoardId(null);
-        setBoardOrder(null);
-        router.push('/logga-in');
-        setLoadingMessage("Utloggad (auth instance var null).");
-        return;
-    }
     setLoadingMessage("Loggar ut...");
     await signOut(auth);
-    router.push('/logga-in');
+    // User state will be cleared by onAuthStateChanged
+    router.push('/logga-in'); // Redirect after sign out
     setLoadingMessage("Utloggad.");
   };
 
   const sendPasswordReset = async (email: string) => {
-    if (!auth) throw new Error("Firebase Auth instance not initialized for sendPasswordReset.");
-    console.log(`AuthContext: Attempting to send password reset for ${email}. (HMR Test Comment V_INSTANCE_REFACTOR)`);
+    console.log(`AuthContext: Attempting to send password reset for ${email} using imported auth. (HMR Test Comment V_DIRECT_AUTH_IMPORT)`);
     return sendPasswordResetEmail(auth, email);
   };
 
   const refreshUserData = useCallback(async () => {
-    if (!auth) {
-        console.warn("Firebase Auth instance not available for refreshUserData.");
-        setLoadingMessage("Kunde inte uppdatera: auth-instans saknas.");
-        return;
-    }
     const currentAuthUser = auth.currentUser;
     if (currentAuthUser) {
       setLoadingMessage("Uppdaterar användardata...");
-      await fetchUserData(currentAuthUser, auth); // Pass auth instance
+      await fetchUserData(currentAuthUser);
       setLoadingMessage("Användardata uppdaterad.");
     } else {
       setLoadingMessage("Ingen användare inloggad för uppdatering.");
-      await fetchUserData(null, auth); // Pass auth instance
+      await fetchUserData(null);
     }
-  }, [fetchUserData, auth]);
+  }, [fetchUserData]);
 
-  const loading = !hasMounted || !initialAuthCheckDone || !auth; // Also consider auth instance loading
+  // Loading is true until component has mounted AND initial auth check is complete
+  const loading = !hasMounted || !initialAuthCheckDone;
 
   if (!hasMounted) {
-    return null;
+    // Render nothing or a minimal loader until the component has mounted
+    // to prevent premature rendering of children that might depend on the context.
+    return null; 
   }
 
+  // This loader will show if hasMounted is true but initialAuthCheckDone is false
   if (loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">

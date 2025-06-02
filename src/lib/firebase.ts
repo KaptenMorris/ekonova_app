@@ -1,6 +1,8 @@
 
 // HMR Nudge Comment - vFINAL_LIB_ATTEMPT_X - 2024-08-15T12:00:00Z
 // HMR Nudge Comment - vFINAL_LIB_ATTEMPT_Y_SINGLETON_REFINED - 2024-08-15T14:00:00Z
+// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_Z_CONSOLE_LOG - 2024-08-15T15:30:00Z
+// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_Z_PERSISTENT_HMR_RETRY - 2024-08-15T16:00:00Z
 import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import {
   getAuth,
@@ -11,10 +13,10 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   type User,
-  type Auth
+  type Auth as FirebaseAuthType // Import original Auth type
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 
@@ -28,59 +30,61 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Log a warning if essential Firebase config values are missing
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
   console.warn(
-    "Firebase configuration is missing essential values (apiKey or projectId). " +
-    "Please ensure your .env file is set up correctly with NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID. " +
-    "Using placeholder/missing values will likely cause Firebase services to fail."
+    "src/lib/firebase.ts: Firebase configuration is missing essential values (apiKey or projectId). " +
+    "Using placeholder/missing values will likely cause Firebase services to fail. " +
+    "Update your .env file with correct NEXT_PUBLIC_FIREBASE_ values."
   );
 }
 
-
 let app: FirebaseApp;
-let initializedAuthInstance: Auth | null = null;
+let auth: FirebaseAuthType;
+let db: Firestore;
+let storage: FirebaseStorage;
+let analytics: Analytics | undefined;
 
-console.log(`Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint - Add Config Warning - ${new Date().toISOString()})`);
+console.log(`Firebase module (src/lib/firebase.ts) evaluating... (HMR Check - Direct Init - ${new Date().toISOString()})`);
 
-if (!getApps().length) {
-  console.log("src/lib/firebase.ts: Initializing new Firebase app instance...");
-  app = initializeApp(firebaseConfig);
-} else {
-  console.log("src/lib/firebase.ts: Getting existing Firebase app instance...");
-  app = getApp(); // Default app
-}
-
-function getFirebaseAuthInstance(): Auth {
-  if (!initializedAuthInstance) {
-    console.log("src/lib/firebase.ts: Initializing Firebase Auth instance for the first time via getFirebaseAuthInstance...");
-    initializedAuthInstance = getAuth(app);
+try {
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+    console.log("src/lib/firebase.ts: Firebase app initialized.");
+  } else {
+    app = getApp();
+    console.log("src/lib/firebase.ts: Existing Firebase app retrieved.");
   }
-  return initializedAuthInstance;
-}
 
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  console.log("src/lib/firebase.ts: Core Firebase services (Auth, Firestore, Storage) initialized.");
 
-const dbInstance = getFirestore(app);
-const storageInstance = getStorage(app);
-let analyticsInstance: Analytics | undefined;
-
-if (typeof window !== 'undefined') {
-  isSupported().then((supported) => {
-    if (supported && firebaseConfig.measurementId) {
-      console.log("Firebase Analytics is supported, initializing...");
-      analyticsInstance = getAnalytics(app);
-    }
-  }).catch(err => {
-    console.error("Error checking Firebase Analytics support:", err);
-  });
+  if (typeof window !== 'undefined') {
+    isSupported().then((supported) => {
+      if (supported && firebaseConfig.measurementId) {
+        analytics = getAnalytics(app);
+        console.log("src/lib/firebase.ts: Firebase Analytics initialized.");
+      } else {
+        console.log("src/lib/firebase.ts: Firebase Analytics not supported or no measurementId.");
+      }
+    }).catch(error => {
+      console.error("src/lib/firebase.ts: Error initializing Firebase Analytics", error);
+    });
+  }
+} catch (error) {
+  console.error("CRITICAL_FIREBASE_INIT_FAILURE in src/lib/firebase.ts:", error);
+  // This error will propagate and should be visible in the browser console or Next.js output
+  throw new Error(`Critical Firebase Init Failure: ${(error as Error).message || error}`);
 }
 
 export {
   app,
-  getFirebaseAuthInstance,
-  dbInstance as db,
-  storageInstance as storage,
-  analyticsInstance as analytics,
+  auth, // Export the initialized auth instance directly
+  db,
+  storage,
+  analytics,
+  // Re-export functions from 'firebase/auth' that are used by AuthContext or other parts of the app
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -88,5 +92,5 @@ export {
   sendPasswordResetEmail,
   updateProfile,
   type User,
-  type Auth
+  type FirebaseAuthType as Auth // Re-export the Auth type, aliased if needed
 };
