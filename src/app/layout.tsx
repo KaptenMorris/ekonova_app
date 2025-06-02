@@ -1,17 +1,18 @@
 
 "use client";
 
-// import type { Metadata } from 'next'; // Borttagen oanvänd import
+// HMR Nudge Comment - vFINAL_LAYOUT_ATTEMPT_Y_PROVIDER_NEST - 2024-08-15T14:20:00Z
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext';
 import React, { useEffect } from 'react';
+import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
+
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
-// HMR Nudge Comment - vFINAL_LAYOUT_ATTEMPT_Y - 2024-08-15T10:00:00Z
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +32,6 @@ export default function RootLayout({
   }, []);
 
   useEffect(() => {
-    // Another HMR diagnostic comment - v6
     if (typeof window !== 'undefined') {
       document.title = 'Ekonova'; // Default title
     }
@@ -51,18 +51,19 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster />
-          </ThemeProvider>
+          <AppVersionInfoProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </AppVersionInfoProvider>
         </AuthProvider>
       </body>
     </html>
   );
 }
-

@@ -1,6 +1,7 @@
 
 "use client";
 
+// HMR Nudge Comment - vFINAL_AUTH_CTX_ATTEMPT_Y - 2024-08-15T14:20:00Z
 // Firebase Auth functions are now imported from @/lib/firebase
 import {
   type User,
@@ -18,7 +19,6 @@ import { db } from '@/lib/firebase'; // db is fine as is
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
-// HMR Nudge Comment - vFINAL_AUTH_CTX - 2024-08-14T12:34:56Z
 
 interface SubscriptionInfo {
   status: 'active' | 'inactive' | 'trial' | null;
@@ -56,7 +56,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined); // undefined means initial state, null means no user
   const [hasMounted, setHasMounted] = useState(false);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Initierar applikation...");
+  const [loadingMessage, setLoadingMessage] = useState("Laddar applikation...");
 
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
@@ -86,29 +86,36 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setBoardOrder(userData.boardOrder || null);
 
           // Sync Firebase Auth profile if Firestore has a more "canonical" name/photoURL, or vice-versa
-          const authUserToUpdate = auth.currentUser;
+          const authUserToUpdate = auth.currentUser; // Use imported auth instance
           if (authUserToUpdate) {
             let firestoreUpdates: any = {};
             let authProfileNeedsUpdate = false;
             let authProfileUpdatePayload: { displayName?: string | null; photoURL?: string | null } = {};
 
             // Sync display name
-            if (userData.displayName && userData.displayName !== (authUserToUpdate.displayName || '')) {
-              authProfileUpdatePayload.displayName = userData.displayName;
+            const firestoreDisplayName = userData.displayName || '';
+            const authDisplayName = authUserToUpdate.displayName || '';
+
+            if (firestoreDisplayName && firestoreDisplayName !== authDisplayName) {
+              authProfileUpdatePayload.displayName = firestoreDisplayName;
               authProfileNeedsUpdate = true;
-            } else if (authUserToUpdate.displayName && authUserToUpdate.displayName !== (userData.displayName || '')) {
-              firestoreUpdates.displayName = authUserToUpdate.displayName;
+            } else if (authDisplayName && authDisplayName !== firestoreDisplayName) {
+              firestoreUpdates.displayName = authDisplayName;
             }
 
             // Sync photo URL
-            if (userData.photoURL && userData.photoURL !== (authUserToUpdate.photoURL || null)) {
-              authProfileUpdatePayload.photoURL = userData.photoURL;
+            const firestorePhotoURL = userData.photoURL || null;
+            const authPhotoURL = authUserToUpdate.photoURL || null;
+
+            if (firestorePhotoURL && firestorePhotoURL !== authPhotoURL) {
+              authProfileUpdatePayload.photoURL = firestorePhotoURL;
               authProfileNeedsUpdate = true;
-            } else if (authUserToUpdate.photoURL && authUserToUpdate.photoURL !== (userData.photoURL || null)) {
-              firestoreUpdates.photoURL = authUserToUpdate.photoURL;
+            } else if (authPhotoURL && authPhotoURL !== firestorePhotoURL) {
+              firestoreUpdates.photoURL = authPhotoURL;
             }
             
             if (Object.keys(firestoreUpdates).length > 0) {
+               firestoreUpdates.updatedAt = serverTimestamp(); // Ensure updatedAt is set for any Firestore update
               await updateDoc(userDocRef, firestoreUpdates);
             }
             if (authProfileNeedsUpdate && Object.keys(authProfileUpdatePayload).length > 0) {
@@ -123,7 +130,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             email: user.email,
             displayName: initialDisplayName,
             photoURL: user.photoURL || null,
-            createdAt: serverTimestamp(),
+            createdAt: serverTimestamp(), // Corrected usage
             subscriptionStatus: 'inactive',
             subscriptionExpiresAt: null,
             mainBoardId: null,
@@ -148,12 +155,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
 
   useEffect(() => {
+    // HMR Diagnostic Comment for useEffect - v202408151420
     if (!hasMounted) return;
 
     setLoadingMessage("Sätter upp autentiseringslyssnare...");
-    console.log("AuthProvider: Setting up onAuthStateChanged listener using re-exported functions.");
+    console.log("AuthProvider: Setting up onAuthStateChanged listener (HMR Test - Main Effect).");
     const unsubscribe = onAuthStateChanged(auth, async (user) => { // Use imported auth instance
-      console.log("AuthProvider onAuthStateChanged (re-exported): User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
+      console.log("AuthProvider onAuthStateChanged: User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
@@ -166,7 +174,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setInitialAuthCheckDone(true);
       setLoadingMessage("Autentisering klar.");
     }, (error) => {
-        console.error("AuthProvider onAuthStateChanged error (re-exported):", error);
+        console.error("AuthProvider onAuthStateChanged error:", error);
         setCurrentUser(null); // Ensure currentUser is null on error
         setSubscription(null);
         setMainBoardId(null);
@@ -176,7 +184,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     });
 
     return () => {
-      console.log("AuthProvider: Cleaning up onAuthStateChanged listener (re-exported).");
+      console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
       unsubscribe();
     };
   }, [hasMounted, fetchUserData]);
@@ -208,7 +216,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   };
 
   const sendPasswordReset = async (email: string) => {
-    console.log(`AuthContext: Attempting to send password reset for ${email} using re-exported function.`);
+    console.log(`AuthContext: Attempting to send password reset for ${email}.`);
     return sendPasswordResetEmail(auth, email); // Use imported auth instance
   };
 
@@ -236,6 +244,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   if (loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
+        {/* Icon removed to simplify initial render after mount, to combat hydration errors */}
         <p className="ml-2">{loadingMessage}</p>
       </div>
     );
@@ -243,7 +252,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   const value = {
     currentUser,
-    loading, // This loading reflects the auth state, not the dynamic import anymore
+    loading,
     subscription,
     mainBoardId,
     boardOrder,
