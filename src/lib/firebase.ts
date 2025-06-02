@@ -1,9 +1,9 @@
 
-import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
-import { getAuth } from "firebase/auth"; // Simpler import
+import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app"; // Added FirebaseApp type
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAnalytics, isSupported, type Analytics } from "firebase/analytics"; // Import Analytics type
+import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,25 +15,27 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase app (ensure it's only done once)
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+let app: FirebaseApp; // Explicitly type the app instance
 
-// Initialize Firebase services (ensure they are only initialized once)
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
 
-let analytics: Analytics | undefined;
+const authInstance = getAuth(app);
+const dbInstance = getFirestore(app);
+const storageInstance = getStorage(app);
+let analyticsInstance: Analytics | undefined;
 
-// Conditionally initialize Analytics only on client and if supported
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
     if (supported && firebaseConfig.measurementId) {
-      analytics = getAnalytics(app);
+      analyticsInstance = getAnalytics(app);
     }
   }).catch(err => {
     console.error("Error checking Firebase Analytics support:", err);
   });
 }
 
-export { app, auth, db, storage, analytics };
+export { app, authInstance as auth, dbInstance as db, storageInstance as storage, analyticsInstance as analytics };
