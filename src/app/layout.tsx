@@ -7,9 +7,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext';
-// Removed: import { LanguageProvider } from '@/contexts/LanguageContext';
+// Removed: import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 import React, { useEffect } from 'react';
-import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -44,19 +43,16 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
-          <AppVersionInfoProvider> {/* AppVersionInfoProvider is now INSIDE AuthProvider */}
-            {/* Removed: <LanguageProvider> */}
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                {children}
-                <Toaster />
-              </ThemeProvider>
-            {/* Removed: </LanguageProvider> */}
-          </AppVersionInfoProvider>
+          {/* AppVersionInfoProvider was here, now removed */}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

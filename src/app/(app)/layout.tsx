@@ -20,7 +20,6 @@ import {
   HelpCircle,
   LifeBuoy,
   Bot,
-  // ShieldCheck, // For Admin link - Removed
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -41,8 +40,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import WhatsNewDialog from '@/components/shared/whats-new-dialog'; // Added
-import { useAppVersionInfo } from '@/contexts/AppVersionContext'; // Added
+import WhatsNewDialog from '@/components/shared/whats-new-dialog';
+import { useAppVersionInfo, AppVersionInfoProvider } from '@/contexts/AppVersionContext'; // Added AppVersionInfoProvider import
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -52,7 +51,6 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
-  // adminOnly?: boolean; // Removed adminOnly
 }
 
 const staticNavItems: NavItem[] = [
@@ -65,7 +63,6 @@ const staticNavItems: NavItem[] = [
   { href: '/hjalp', label: 'Hjälp', icon: HelpCircle },
   { href: '/support', label: 'Support', icon: LifeBuoy },
   { href: '/kontoinstallningar', label: 'Kontoinställningar', icon: Settings },
-  // { href: '/admin/dashboard', label: 'Admin', icon: ShieldCheck, adminOnly: true }, // Removed Admin link
 ];
 
 
@@ -74,18 +71,15 @@ const AppLayoutInner: FC<{
   logOut: () => void;
   pathname: string;
   children: ReactNode;
-  // isAdmin: boolean | null; // Removed isAdmin prop
-}> = ({ currentUser, logOut, pathname, children /*, isAdmin*/ }) => {
+}> = ({ currentUser, logOut, pathname, children }) => {
   const { isMobile, setOpenMobile } = useSidebar();
-  const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo(); // Added
+  const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo(); 
 
   const userDisplayName = currentUser.displayName || currentUser.email || 'Användare';
   const userEmail = currentUser.email || 'Ingen e-post';
   const userAvatarFallback = (userDisplayName.split(' ').map(n => n[0]).join('') || userEmail[0] || 'A').toUpperCase();
 
   const navItems = useMemo(() => staticNavItems, []);
-    // Filter logic removed: staticNavItems.filter(item => !item.adminOnly || (item.adminOnly && isAdmin === true))
-  //, [isAdmin]); // Dependency removed
 
   const currentPage = navItems.find(item => pathname.startsWith(item.href));
   const pageTitle = currentPage ? currentPage.label : 'Ekonova';
@@ -168,7 +162,7 @@ const AppLayoutInner: FC<{
           {children}
         </main>
       </SidebarInset>
-      {!isLoadingVersionInfo && ( // Added dialog rendering
+      {!isLoadingVersionInfo && (
         <WhatsNewDialog
           isOpen={showWhatsNewDialog}
           onClose={closeWhatsNewDialog}
@@ -183,7 +177,7 @@ const AppLayoutInner: FC<{
 const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, loading, logOut /*, isAdmin*/ } = useAuth(); // Removed isAdmin
+  const { currentUser, loading, logOut } = useAuth(); 
 
   useEffect(() => {
     if (!loading && !currentUser) {
@@ -207,16 +201,17 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   }
 
   return (
-    <SidebarProvider defaultOpen collapsible="icon">
-      <AppLayoutInner
-        currentUser={currentUser}
-        logOut={logOut}
-        pathname={pathname}
-        // isAdmin={isAdmin} // Removed isAdmin
-      >
-        {children}
-      </AppLayoutInner>
-    </SidebarProvider>
+    <AppVersionInfoProvider> {/* Moved AppVersionInfoProvider here */}
+      <SidebarProvider defaultOpen collapsible="icon">
+        <AppLayoutInner
+          currentUser={currentUser}
+          logOut={logOut}
+          pathname={pathname}
+        >
+          {children}
+        </AppLayoutInner>
+      </SidebarProvider>
+    </AppVersionInfoProvider>
   );
 };
 
