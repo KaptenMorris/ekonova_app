@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode, FC } from 'react';
-import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
 import { type Auth, type User } from 'firebase/auth'; // Keep type imports
 import * as firebaseAuthFunctions from 'firebase/auth'; // Namespace import for functions
 
@@ -44,12 +44,12 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [subscription, setSubscription] = React.useState<SubscriptionInfo | null>(null);
-  const [mainBoardId, setMainBoardId] = React.useState<string | null>(null);
-  const [boardOrder, setBoardOrder] = React.useState<string[] | null>(null);
-  const [hasMounted, setHasMounted] = React.useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [mainBoardId, setMainBoardId] = useState<string | null>(null);
+  const [boardOrder, setBoardOrder] = useState<string[] | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, []);
+  }, [auth]); // Added auth to dependency array
 
   useEffect(() => {
     if (!hasMounted) {
@@ -118,7 +118,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData, hasMounted]); // Removed 'auth' from dependencies as it's stable
+  }, [fetchUserData, hasMounted, auth]); // Added auth to dependency array
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
