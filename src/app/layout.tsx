@@ -30,6 +30,12 @@ export default function RootLayout({
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.title = 'Ekonova'; // Default title
+    }
+  }, []);
+
   return (
     <html lang="sv" suppressHydrationWarning>{/* Reverted lang to "sv" */}
       <head>
@@ -42,7 +48,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Ekonova" />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`} data-layout-version="1">
+      <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           {/* AppVersionInfoProvider was here, now removed */}
           <ThemeProvider
@@ -59,4 +65,3 @@ export default function RootLayout({
     </html>
   );
 }
-
