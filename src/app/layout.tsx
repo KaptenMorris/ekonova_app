@@ -18,6 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   useEffect(() => {
+    // Service Worker registration logic
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
@@ -58,3 +59,4 @@ export default function RootLayout({
     </html>
   );
 }
+
