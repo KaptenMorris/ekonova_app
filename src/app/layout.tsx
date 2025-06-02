@@ -1,22 +1,17 @@
 
 "use client";
 
-import type { Metadata } from 'next';
+// import type { Metadata } from 'next'; // Borttagen oanvänd import
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext';
-// Removed: import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 import React, { useEffect } from 'react';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
-// export const metadata: Metadata = { // Metadata object is for Server Components, but this is "use client"
-//   title: 'Ekonova',
-//   description: 'Din personliga ekonomi app',
-// };
-
+// HMR Nudge Comment - vFINAL_LAYOUT_ATTEMPT_Y - 2024-08-15T10:00:00Z
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,27 +31,26 @@ export default function RootLayout({
   }, []);
 
   useEffect(() => {
-    // Minor comment to ensure a change for HMR diagnostics - v3
+    // Another HMR diagnostic comment - v6
     if (typeof window !== 'undefined') {
       document.title = 'Ekonova'; // Default title
     }
   }, []);
 
   return (
-    <html lang="sv" suppressHydrationWarning data-app-version="1.0.0">
+    <html lang="sv" suppressHydrationWarning data-app-version="1.0.0-a">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="description" content="Din personliga ekonomi app" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#73a580" />
+        <meta name="theme-color" content="#73A580" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Ekonova" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
-          {/* AppVersionInfoProvider was here, now removed */}
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
