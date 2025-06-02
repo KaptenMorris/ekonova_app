@@ -118,7 +118,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData, hasMounted, auth]);
+  }, [fetchUserData, hasMounted]); // Removed 'auth' from dependencies as it's stable
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
