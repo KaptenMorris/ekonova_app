@@ -1,5 +1,6 @@
 
 // HMR Nudge Comment - vFINAL_LIB_ATTEMPT_X - 2024-08-15T12:00:00Z
+// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_Y_SINGLETON_REFINED - 2024-08-15T14:00:00Z
 import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import {
   getAuth,
@@ -10,7 +11,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   type User,
-  type Auth // Import Auth type
+  type Auth
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -27,26 +28,33 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-let app: FirebaseApp;
-let initializedAuthInstance: Auth | null = null; // Singleton instance
+// Log a warning if essential Firebase config values are missing
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.warn(
+    "Firebase configuration is missing essential values (apiKey or projectId). " +
+    "Please ensure your .env file is set up correctly with NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID. " +
+    "Using placeholder/missing values will likely cause Firebase services to fail."
+  );
+}
 
-console.log(`Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint - vFINAL_AUTH_INSTANCE_REFACTOR - ${new Date().toISOString()})`);
+
+let app: FirebaseApp;
+let initializedAuthInstance: Auth | null = null;
+
+console.log(`Firebase module (src/lib/firebase.ts) evaluating (HMR Checkpoint - Add Config Warning - ${new Date().toISOString()})`);
 
 if (!getApps().length) {
   console.log("src/lib/firebase.ts: Initializing new Firebase app instance...");
   app = initializeApp(firebaseConfig);
 } else {
   console.log("src/lib/firebase.ts: Getting existing Firebase app instance...");
-  app = getApp() as FirebaseApp;
+  app = getApp(); // Default app
 }
 
-// Function to get the singleton Auth instance
 function getFirebaseAuthInstance(): Auth {
   if (!initializedAuthInstance) {
     console.log("src/lib/firebase.ts: Initializing Firebase Auth instance for the first time via getFirebaseAuthInstance...");
     initializedAuthInstance = getAuth(app);
-  } else {
-    // console.log("src/lib/firebase.ts: Returning existing Firebase Auth instance via getFirebaseAuthInstance...");
   }
   return initializedAuthInstance;
 }
@@ -61,8 +69,6 @@ if (typeof window !== 'undefined') {
     if (supported && firebaseConfig.measurementId) {
       console.log("Firebase Analytics is supported, initializing...");
       analyticsInstance = getAnalytics(app);
-    } else {
-      // console.log("Firebase Analytics not supported or no measurementId.");
     }
   }).catch(err => {
     console.error("Error checking Firebase Analytics support:", err);
@@ -71,11 +77,10 @@ if (typeof window !== 'undefined') {
 
 export {
   app,
-  getFirebaseAuthInstance, // Export the function to get the auth instance
+  getFirebaseAuthInstance,
   dbInstance as db,
   storageInstance as storage,
   analyticsInstance as analytics,
-  // Re-export auth functions and User type
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
