@@ -3,15 +3,9 @@
 
 import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback } from 'react';
-import {
-  Auth,
-  User,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  sendPasswordResetEmail // Importera sendPasswordResetEmail
-} from 'firebase/auth';
+import { type Auth, type User } from 'firebase/auth'; // Keep type imports
+import * as firebaseAuthFunctions from 'firebase/auth'; // Namespace import for functions
+
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -31,7 +25,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<any>;
   logIn: (email: string, password: string) => Promise<any>;
   logOut: () => Promise<void>;
-  sendPasswordReset: (email: string) => Promise<void>; // Ny metod
+  sendPasswordReset: (email: string) => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
 
@@ -112,7 +106,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     if (!hasMounted) {
       return; 
     }
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = firebaseAuthFunctions.onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
@@ -135,7 +129,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   }, [currentUser, fetchUserData]);
 
   const signUp = async (email: string, password: string, name: string) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await firebaseAuthFunctions.createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       const userDocRef = doc(db, 'users', userCredential.user.uid);
       await setDoc(userDocRef, {
@@ -154,12 +148,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logIn = (email: string, password: string) => {
-    return signInWithEmailAndPassword(auth, email, password);
+    return firebaseAuthFunctions.signInWithEmailAndPassword(auth, email, password);
   };
 
   const logOut = async () => {
     try {
-      await signOut(auth);
+      await firebaseAuthFunctions.signOut(auth);
       setCurrentUser(null); 
       router.push('/logga-in');
     } catch (error) {
@@ -168,7 +162,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   };
 
   const sendPasswordReset = async (email: string) => {
-    return sendPasswordResetEmail(auth, email);
+    return firebaseAuthFunctions.sendPasswordResetEmail(auth, email);
   };
 
   if (!hasMounted) {
@@ -196,7 +190,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     signUp,
     logIn,
     logOut,
-    sendPasswordReset, // Lägg till metoden i context value
+    sendPasswordReset,
     refreshUserData,
   };
 
