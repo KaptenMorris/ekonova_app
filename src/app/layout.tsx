@@ -9,7 +9,7 @@ import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext';
 // Removed: import { LanguageProvider } from '@/contexts/LanguageContext';
 import React, { useEffect } from 'react';
-import { AppVersionInfoProvider } from '@/contexts/AppVersionContext'; // Added
+import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
@@ -44,7 +44,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
-          <AppVersionInfoProvider> {/* Ensured provider is wrapping children */}
+          <AppVersionInfoProvider> {/* AppVersionInfoProvider is now INSIDE AuthProvider */}
             {/* Removed: <LanguageProvider> */}
               <ThemeProvider
                 attribute="class"
@@ -56,7 +56,7 @@ export default function RootLayout({
                 <Toaster />
               </ThemeProvider>
             {/* Removed: </LanguageProvider> */}
-          </AppVersionInfoProvider> {/* Ensured provider is wrapping children */}
+          </AppVersionInfoProvider>
         </AuthProvider>
       </body>
     </html>
