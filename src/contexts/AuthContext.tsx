@@ -3,7 +3,16 @@
 
 import type { ReactNode, FC } from 'react';
 import React, { createContext, useContext, useEffect, useCallback, useState } from 'react';
-import { type Auth, type User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'; // Reverted to direct named imports
+// Firebase Auth imports - attempting multi-line to see if it influences HMR
+import {
+  type Auth,
+  type User,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail
+} from 'firebase/auth';
 
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, Timestamp, updateDoc, setDoc } from 'firebase/firestore';
@@ -99,11 +108,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setMainBoardId(null);
       setBoardOrder(null);
     }
-  }, [auth]);
+  }, [auth]); // Added auth to dependency array
 
   useEffect(() => {
     if (!hasMounted) {
-      return; 
+      return;
     }
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -117,7 +126,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     });
     return unsubscribe;
-  }, [fetchUserData, hasMounted, auth]);
+  }, [fetchUserData, hasMounted, auth]); // Added auth to dependency array
 
   const refreshUserData = useCallback(async () => {
     if (currentUser) {
@@ -141,7 +150,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         mainBoardId: null,
         boardOrder: [],
       });
-      await refreshUserData(); 
+      await refreshUserData();
     }
     return userCredential;
   };
@@ -153,7 +162,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const logOut = async () => {
     try {
       await signOut(auth);
-      setCurrentUser(null); 
+      setCurrentUser(null);
       router.push('/logga-in');
     } catch (error) {
       console.error("Error logging out:", error);
@@ -171,8 +180,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       </div>
     );
   }
-  
-  if (loading) { 
+
+  if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
