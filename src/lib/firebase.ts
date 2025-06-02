@@ -17,9 +17,13 @@ const firebaseConfig: FirebaseOptions = {
 
 let app: FirebaseApp; // Explicitly type the app instance
 
+console.log("Firebase module (src/lib/firebase.ts) evaluating..."); // Diagnostic log
+
 if (!getApps().length) {
+  console.log("Initializing new Firebase app...");
   app = initializeApp(firebaseConfig);
 } else {
+  console.log("Getting existing Firebase app...");
   app = getApp();
 }
 
@@ -31,7 +35,10 @@ let analyticsInstance: Analytics | undefined;
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
     if (supported && firebaseConfig.measurementId) {
+      console.log("Firebase Analytics is supported, initializing...");
       analyticsInstance = getAnalytics(app);
+    } else {
+      console.log("Firebase Analytics not supported or no measurementId.");
     }
   }).catch(err => {
     console.error("Error checking Firebase Analytics support:", err);
