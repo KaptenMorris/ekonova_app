@@ -323,9 +323,9 @@ export default function OverviewPage() {
     selectedMonthDate, 
     monthlyIncome, // Depends on actual monthly income
     monthlyExpenses, // Depends on actual monthly expenses
+    canEditActiveBoard, // Check if user can edit
     isLoadingPageData, 
     isLoadingRollover,
-    canEditActiveBoard,
     toast
   ]);
 
@@ -561,9 +561,9 @@ export default function OverviewPage() {
                   {Math.abs(rolloverFromPreviousMonth).toLocaleString('sv-SE')} kr
                 </span>
               </div>
-              <div className="flex justify-between text-sm"><span>Månadens Inkomster:</span> <span className="font-medium text-accent">+ {monthlyIncome.toLocaleString('sv-SE')} kr</span></div>
+              <div className="flex justify-between text-sm"><span>Månadens faktiska inkomster:</span> <span className="font-medium text-accent">+ {monthlyIncome.toLocaleString('sv-SE')} kr</span></div>
               <div className="flex justify-between text-sm font-semibold border-b pb-1 mb-1"><span>Total Disponibel Inkomst:</span> <span className={`font-bold ${totalDisposableIncome >= 0 ? 'text-accent' : 'text-destructive'}`}>{totalDisposableIncome >= 0 ? '+ ' : '- '}{Math.abs(totalDisposableIncome).toLocaleString('sv-SE')} kr</span></div>
-              <div className="flex justify-between text-sm"><span>Månadens Utgifter:</span> <span className="font-medium text-destructive">- {monthlyExpenses.toLocaleString('sv-SE')} kr</span></div>
+              <div className="flex justify-between text-sm"><span>Månadens faktiska utgifter:</span> <span className="font-medium text-destructive">- {monthlyExpenses.toLocaleString('sv-SE')} kr</span></div>
               <div className="flex justify-between pt-1 border-t mt-1"><strong>Nettosaldo (Denna månad):</strong> <strong className={` ${netBalanceDisplayed >= 0 ? 'text-accent' : 'text-destructive'}`}>{netBalanceDisplayed >= 0 ? '+ ' : '- '}{Math.abs(netBalanceDisplayed).toLocaleString('sv-SE')} kr</strong></div>
               <div className="flex justify-between text-xs text-muted-foreground pt-1 border-t mt-2">
                 <span>Resultat som överförs till nästkommande månad:</span> 
