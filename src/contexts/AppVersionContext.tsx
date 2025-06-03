@@ -37,6 +37,12 @@ interface AppVersionInfoProviderProps {
   children: ReactNode;
 }
 
+// Firestore Security Rules Dependency:
+// This context requires specific Firestore security rules to function:
+// 1. Read access to `appVersionInfo/latest` (e.g., `match /appVersionInfo/latest { allow read: if true; }`)
+// 2. Read/Write access for authenticated users to their own document at `users/{uid}` for `lastSeenAppVersion`
+//    (e.g., `match /users/{userId} { allow read, write: if request.auth.uid == userId; }`)
+
 export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ children }) => {
   const { currentUser, loading: authLoading } = useAuth();
   const [latestVersionInfo, setLatestVersionInfo] = useState<AppVersion | null>(null);
@@ -81,7 +87,7 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
     } catch (error: any) {
       console.error("[AppVersionContext] Error in fetchLatestVersionAndUserStatus (Firestore operation):", error);
       if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-        console.error(`[AppVersionContext] Firestore permission denied. Path: appVersionInfo/latest or users/${user.uid}. Check Firestore Security Rules.`);
+        console.error(`[AppVersionContext] Firestore permission denied. This could be for 'appVersionInfo/latest' OR 'users/${user.uid}'. Please ensure your Firestore Security Rules allow: 1. Read access to 'appVersionInfo/latest'. 2. Read/write access for the user to their own document at 'users/${user.uid}'.`);
         // Potentially show a non-critical error to the user or degrade gracefully
       }
       setLatestVersionInfo(null);
