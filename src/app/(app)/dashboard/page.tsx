@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import {
-  PlusCircle, Edit3, Trash2, MoreHorizontal, Home, Car, ShoppingCart, Clapperboard, Tag, Briefcase, HandCoins, Shapes, Zap, Wifi, Shield, Gift, PiggyBank, CreditCard, DollarSign, Receipt, Utensils, Plane, Palette, BookOpen, Heart, ShoppingBag, Shirt, Bike, Bus, Train, Fuel as FuelIcon, Camera, Music, Film, Gamepad2, Dog, Cat, PawPrint, GraduationCap, Landmark, Wrench, Phone, Computer, Loader2, Activity, Anchor, Award, Banknote, Bitcoin, Bone, Bookmark, Brain, Calculator, CalendarDays, Candy, Castle, CheckCheck, ChevronDown, ChevronUp, Church, CircleDollarSign, ClipboardList, Clock, Cloud, Code, Coffee, Coins, Compass, Contact, CookingPot, Crop, Crown, CupSoda, DoorOpen, Download, Drama, Dribbble, Droplet, Drumstick, Dumbbell, Ear, Egg, FileText, Fish, Flag, Flame, Flashlight, FlaskConical, Flower, Footprints, Gauge, Gem, Globe, Grape, Grid, Hammer, Headphones, HelpCircle, IceCream, Image, IndianRupee, Infinity, Key, Laptop, Laugh, Layers, Leaf, Library, LifeBuoy, Lightbulb, Link, List, Lock, LogIn, LogOut, Mail, Map as MapIcon, MapPin, Martini, Medal, Megaphone, Menu, Mic, Minus, Monitor, Moon, MousePointer, Move, Navigation, Newspaper, Nut, Option, Package, PaintBucket, Paperclip, ParkingCircle, PenTool, Pencil, Percent, PersonStanding, PictureInPicture, Pin, Pizza, Play, Plug, Pocket, Podcast, Power, Printer, Puzzle, Quote, Recycle, RefreshCcw, Reply, Rocket, RotateCcw, Rss, Ruler, Save, Scale, ScanLine, School, Scissors, ScreenShare, Search, Send, Settings, Share2, Siren, Slice, Smartphone, Smile, Speaker, Star, Store, Sun, Sunrise, Sunset, Table, Tablet, Target, Tent, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, Trash, TrendingUp, Trophy, Truck, Tv, Umbrella, Upload, User, Verified, Video, Volume2, Wallet, Watch, Waves, Wind, Wine, Youtube, ZoomIn, UserPlus, ArrowUp, ArrowDown, Copy } from 'lucide-react';
+  PlusCircle, Edit3, Trash2, MoreHorizontal, Home, Car, ShoppingCart, Clapperboard, Tag, Briefcase, HandCoins, Shapes, Zap, Wifi, Shield, Gift, PiggyBank, CreditCard, DollarSign, Receipt, Utensils, Plane, Palette, BookOpen, Heart, ShoppingBag, Shirt, Bike, Bus, Train, Fuel as FuelIcon, Camera, Music, Film, Gamepad2, Dog, Cat, PawPrint, GraduationCap, Landmark, Wrench, Phone, Computer, Loader2, Activity, Anchor, Award, Banknote, Bitcoin, Bone, Bookmark, Brain, Calculator, CalendarDays, Candy, Castle, CheckCheck, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Church, CircleDollarSign, ClipboardList, Clock, Cloud, Code, Coffee, Coins, Compass, Contact, CookingPot, Crop, Crown, CupSoda, DoorOpen, Download, Drama, Dribbble, Droplet, Drumstick, Dumbbell, Ear, Egg, FileText, Fish, Flag, Flame, Flashlight, FlaskConical, Flower, Footprints, Gauge, Gem, Globe, Grape, Grid, Hammer, Headphones, HelpCircle, IceCream, Image, IndianRupee, Infinity, Key, Laptop, Laugh, Layers, Leaf, Library, LifeBuoy, Lightbulb, Link, List, Lock, LogIn, LogOut, Mail, Map as MapIcon, MapPin, Martini, Medal, Megaphone, Menu, Mic, Minus, Monitor, Moon, MousePointer, Move, Navigation, Newspaper, Nut, Option, Package, PaintBucket, Paperclip, ParkingCircle, PenTool, Pencil, Percent, PersonStanding, PictureInPicture, Pin, Pizza, Play, Plug, Pocket, Podcast, Power, Printer, Puzzle, Quote, Recycle, RefreshCcw, Reply, Rocket, RotateCcw, Rss, Ruler, Save, Scale, ScanLine, School, Scissors, ScreenShare, Search, Send, Settings, Share2, Siren, Slice, Smartphone, Smile, Speaker, Star, Store, Sun, Sunrise, Sunset, Table, Tablet, Target, Tent, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, Trash, TrendingUp, Trophy, Truck, Tv, Umbrella, Upload, User, Verified, Video, Volume2, Wallet, Watch, Waves, Wind, Wine, Youtube, ZoomIn, UserPlus, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,14 +32,15 @@ import {
   arrayUnion,
   arrayRemove,
   setDoc,
-  FieldValue,
+  type FieldValue, // Keep specific FieldValue import
   limit,
 } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-// Removed format and parseISO from date-fns as monthly filtering is temporarily removed
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, parseISO } from 'date-fns';
+import { sv } from 'date-fns/locale';
 
 
 // Lucide icons map for dynamic rendering
@@ -55,7 +56,7 @@ interface Transaction {
   id: string;
   title: string;
   amount: number;
-  date: string;
+  date: string; // YYYY-MM-DD
   category: string;
   description?: string;
   type: 'income' | 'expense';
@@ -138,17 +139,16 @@ export default function DashboardPage() {
   const [isLoadingBoards, setIsLoadingBoards] = useState(true);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [isDeletingBoardId, setIsDeletingBoardId] = useState<string | null>(null);
-  const [isUpdatingBoardOrder, setIsUpdatingBoardOrder] = useState(false);
+  // const [isDeletingBoardId, setIsDeletingBoardId] = useState<string | null>(null); // Keep commented out
+  // const [isUpdatingBoardOrder, setIsUpdatingBoardOrder] = useState(false); // Keep commented out
 
-
-  const [newBoardName, setNewBoardName] = useState('');
+  const [newBoardName, setNewBoardName] = useState(''); // For Add Board Dialog
 
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [newTransactionTitle, setNewTransactionTitle] = useState('');
   const [newTransactionAmount, setNewTransactionAmount] = useState<string | number>('');
-  const [newTransactionDate, setNewTransactionDate] = useState(new Date().toISOString().split('T')[0]); // Default to current date for simplified version
+  const [newTransactionDate, setNewTransactionDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [newTransactionCategory, setNewTransactionCategory] = useState<string | undefined>(undefined);
   const [newTransactionDescription, setNewTransactionDescription] = useState('');
   const [isSavingTransaction, setIsSavingTransaction] = useState(false);
@@ -159,8 +159,7 @@ export default function DashboardPage() {
   const [newCategoryIconName, setNewCategoryIconName] = useState<string | undefined>(iconOptions.find(opt => opt.value === 'Shapes')?.value);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [isCategoryEditMode, setIsCategoryEditMode] = useState(false);
-
+  // const [isCategoryEditMode, setIsCategoryEditMode] = useState(false); // Keep commented out
 
   const [isMemberManagementDialogOpen, setIsMemberManagementDialogOpen] = useState(false);
   const [boardToManageMembersFor, setBoardToManageMembersFor] = useState<Board | null>(null);
@@ -170,8 +169,23 @@ export default function DashboardPage() {
   const [listedMembers, setListedMembers] = useState<ListedMember[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
+  // const [isSettingMainBoard, setIsSettingMainBoard] = useState(false); // Keep commented out
 
-  const [isSettingMainBoard, setIsSettingMainBoard] = useState(false);
+  // --- START: Monthly Navigation State and Logic ---
+  const [selectedMonthDate, setSelectedMonthDate] = useState<Date>(startOfMonth(new Date()));
+
+  const handlePreviousMonth = () => setSelectedMonthDate(prevDate => subMonths(prevDate, 1));
+  const handleNextMonth = () => setSelectedMonthDate(prevDate => addMonths(prevDate, 1));
+
+  const isCurrentMonthOrFuture = useMemo(() => {
+    const currentMonthStart = startOfMonth(new Date());
+    return isSameMonth(selectedMonthDate, currentMonthStart) || selectedMonthDate > currentMonthStart;
+  }, [selectedMonthDate]);
+
+  const formattedSelectedMonth = useMemo(() => {
+    return format(selectedMonthDate, 'MMMM yyyy', { locale: sv });
+  }, [selectedMonthDate]);
+  // --- END: Monthly Navigation State and Logic ---
 
 
   const getUserRole = useCallback((board: Board | null | undefined): UserRole => {
@@ -269,7 +283,6 @@ export default function DashboardPage() {
   }, [currentUser?.uid, toast, mainBoardId, userBoardOrderFromContext, activeBoardId]);
 
 
-  // useEffect for categories (depends on activeBoardId)
   useEffect(() => {
     if (!currentUser?.uid || !activeBoardId) {
       setCategories([]);
@@ -292,7 +305,6 @@ export default function DashboardPage() {
     return () => unsubCategories();
   }, [currentUser?.uid, activeBoardId, toast]);
 
-  // useEffect for transactions (NOW FETCHES ALL TRANSACTIONS FOR THE BOARD, NOT MONTH-FILTERED)
   useEffect(() => {
     if (!currentUser?.uid || !activeBoardId) {
       setTransactions([]);
@@ -302,38 +314,45 @@ export default function DashboardPage() {
     setIsLoadingTransactions(true);
 
     const transactionsRef = collection(db, `boards/${activeBoardId}/transactions`);
-    // Removed month filtering from query
+    
+    // --- START: Monthly Filtering Logic for Transactions ---
+    const currentMonthStart = format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd');
+    const currentMonthEnd = format(endOfMonth(selectedMonthDate), 'yyyy-MM-dd');
+    
     const transactionsQuery = query(
       transactionsRef,
+      where("date", ">=", currentMonthStart),
+      where("date", "<=", currentMonthEnd),
       orderBy("date", "desc")
     );
+    // --- END: Monthly Filtering Logic for Transactions ---
 
     const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-      const allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-      setTransactions(allTransactions);
+      const monthTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+      setTransactions(monthTransactions);
       setIsLoadingTransactions(false);
     }, (error) => {
       console.error("Error fetching transactions:", error);
-      toast({ title: "Fel", description: "Kunde inte hämta transaktioner för tavlan.", variant: "destructive" });
+      toast({ title: "Fel", description: "Kunde inte hämta transaktioner för den valda månaden.", variant: "destructive" });
       setIsLoadingTransactions(false);
     });
 
     return () => unsubTransactions();
-  }, [currentUser?.uid, activeBoardId, toast]);
+  }, [currentUser?.uid, activeBoardId, selectedMonthDate, toast]); // Added selectedMonthDate dependency
 
 
   const categoryTotals = useMemo(() => {
-    // Now calculates totals based on ALL transactions for the board
     if (!transactions || !categories) return {};
     const totals: Record<string, { total: number, type: 'income' | 'expense' }> = {};
     categories.forEach(cat => { totals[cat.id] = { total: 0, type: cat.type }; });
-    transactions.forEach(t => {
+    transactions.forEach(t => { // transactions are now month-filtered
       if (totals[t.category] !== undefined) {
         totals[t.category].total += t.amount;
       }
     });
     return totals;
   }, [transactions, categories]);
+
 
 /*
   const handleAddBoard = async () => {
@@ -386,7 +405,6 @@ export default function DashboardPage() {
     }
   };
 
-  /* // handleDeleteBoard was previously commented out like this. Keep it JS-commented for now.
   const handleDeleteBoard = async (boardId: string) => {
     if (!currentUser?.uid) {
       toast({ title: "Fel", description: "Ingen användare inloggad.", variant: "destructive" });
@@ -426,8 +444,7 @@ export default function DashboardPage() {
       setIsDeletingBoardId(null);
     }
   };
-  */
-/*
+  
   const handleRenameBoard = async (boardId: string, newName: string) => {
     if (!currentUser || newName.trim() === '') {
       toast({ title: "Fel", description: "Tavlans namn får inte vara tomt.", variant: "destructive" });
@@ -608,11 +625,26 @@ export default function DashboardPage() {
     setIsProcessingMemberAction(true);
     try {
       const boardDocRef = doc(db, 'boards', boardId);
-      const updates: any = {
-        members: arrayRemove(memberUid),
-        [`memberRoles.${memberUid}`]: FieldValue.delete()
-      };
-      await updateDoc(boardDocRef, updates);
+      // This part needs to be uncommented carefully or replaced with a safe alternative if FieldValue is problematic
+      // const updates: any = {
+      //   members: arrayRemove(memberUid),
+      //   // [`memberRoles.${memberUid}`]: FieldValue.delete() // FieldValue can be tricky in some envs
+      // };
+      // // Temporary simplified removal of role if FieldValue.delete() is an issue
+      const boardSnap = await getDoc(boardDocRef);
+      if (boardSnap.exists()) {
+          const boardData = boardSnap.data() as Board;
+          const updatedMemberRoles = {...boardData.memberRoles};
+          delete updatedMemberRoles[memberUid];
+          await updateDoc(boardDocRef, {
+              members: arrayRemove(memberUid),
+              memberRoles: updatedMemberRoles
+          });
+      } else {
+          throw new Error("Board not found during member removal update.");
+      }
+
+
       toast({ title: "Medlem Borttagen", description: `${memberDisplayName} har tagits bort från tavlan.`});
       setListedMembers(prevMembers => prevMembers.filter(m => m.uid !== memberUid));
       if (boardToManageMembersFor && boardToManageMembersFor.id === boardId) {
@@ -760,7 +792,7 @@ export default function DashboardPage() {
   const resetTransactionForm = () => {
     setNewTransactionTitle('');
     setNewTransactionAmount('');
-    setNewTransactionDate(new Date().toISOString().split('T')[0]); // Default to current date for simplified version
+    setNewTransactionDate(format(selectedMonthDate, 'yyyy-MM-dd')); // Default to first day of selected month
     setNewTransactionCategory(undefined);
     setNewTransactionDescription('');
     setEditingTransaction(null);
@@ -814,7 +846,7 @@ export default function DashboardPage() {
     const transactionPayload: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: any, updatedAt?: any } = {
       title: newTransactionTitle,
       amount: amount,
-      date: newTransactionDate,
+      date: newTransactionDate, // This should be the selected date from the form
       category: newTransactionCategory,
       description: newTransactionDescription,
       type: selectedCategoryDetails.type,
@@ -826,7 +858,7 @@ export default function DashboardPage() {
       if (editingTransaction && editingTransaction.id) {
         const transactionDocRef = doc(transactionsCollectionRef, editingTransaction.id);
         transactionPayload.updatedAt = serverTimestamp();
-        delete (transactionPayload as any).createdAt;
+        delete (transactionPayload as any).createdAt; // Ensure createdAt is not resent on update
         await updateDoc(transactionDocRef, transactionPayload as any);
         toast({ title: "Transaktion Uppdaterad", description: `Transaktionen "${newTransactionTitle}" har uppdaterats.` });
       } else {
@@ -890,7 +922,7 @@ export default function DashboardPage() {
 
   const handleSetMainBoard = async (boardId: string) => {
     if (!currentUser?.uid) return;
-    setIsSettingMainBoard(true);
+    // setIsSettingMainBoard(true); // Keep commented out
     try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         let currentOrder = [...(userBoardOrderFromContext || boards.map(b => b.id))];
@@ -908,11 +940,12 @@ export default function DashboardPage() {
         console.error("Error setting main board:", error);
         toast({ title: "Fel", description: "Kunde inte ange huvudtavla.", variant: "destructive" });
     } finally {
-        setIsSettingMainBoard(false);
+        // setIsSettingMainBoard(false); // Keep commented out
     }
   };
 */
-  /*
+
+/*
   const handleMoveBoard = async (boardId: string, direction: 'up' | 'down') => {
     if (!currentUser?.uid || !userBoardOrderFromContext || isUpdatingBoardOrder) return;
 
@@ -949,12 +982,13 @@ export default function DashboardPage() {
   };
   */
 
-
-  const getTotal = useCallback((type: 'income' | 'expense') => {
-    // Now calculates totals based on ALL transactions for the board
+  const calculateTotalByType = useCallback((type: 'income' | 'expense') => {
     if (!transactions) return 0;
     return transactions.filter(t => t.type === type).reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions]);
+  }, [transactions]); // transactions is now month-filtered
+
+  const totalIncomeForMonth = useMemo(() => calculateTotalByType('income'), [calculateTotalByType]);
+  const totalExpensesForMonth = useMemo(() => calculateTotalByType('expense'), [calculateTotalByType]);
 
   const incomeTransactions = useMemo(() => transactions.filter(t => t.type === 'income'), [transactions]);
   const expenseTransactions = useMemo(() => transactions.filter(t => t.type === 'expense'), [transactions]);
@@ -972,8 +1006,418 @@ export default function DashboardPage() {
       return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /> LADDAR TAVLOR...</div>;
   }
 
+
   return (
-    <div>Dashboard Test Content</div>
+    <div className="flex flex-col h-full gap-6">
+       {/* Board Selection and Actions */}
+       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          {boards.map((board, index) => (
+            <Button
+              key={board.id}
+              variant={activeBoardId === board.id ? "secondary" : "outline"}
+              onClick={() => setActiveBoardId(board.id)}
+              className={cn(
+                "shrink-0",
+                activeBoardId === board.id && "ring-2 ring-primary ring-offset-background ring-offset-2"
+              )}
+              disabled={isLoadingPageData}
+            >
+              {board.name}
+              {board.id === mainBoardId && <Home className="ml-2 h-3 w-3 text-primary/80" />}
+            </Button>
+          ))}
+          {/* Keep Add Board Dialog Trigger commented out for now
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" disabled={isLoadingBoards}><PlusCircle className="h-5 w-5" /></Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Skapa Ny Tavla</DialogTitle></DialogHeader>
+              <Input value={newBoardName} onChange={(e) => setNewBoardName(e.target.value)} placeholder="Tavlans Namn" />
+              <DialogFooter>
+                <DialogClose asChild><Button variant="ghost" data-testid="dialog-close-add-board">Avbryt</Button></DialogClose>
+                <Button onClick={handleAddBoard}>Skapa Tavla</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          */}
+        </div>
+        
+        {activeBoard && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0" disabled={isLoadingPageData}>
+                <MoreHorizontal className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56">
+              <div className="space-y-1">
+                {/* Keep board actions commented out for now
+                <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => {
+                  const newName = prompt("Ange nytt namn för tavlan:", activeBoard.name);
+                  if (newName) handleRenameBoard(activeBoard.id, newName);
+                }} disabled={!canEditActiveBoard || isDeletingBoardId === activeBoard.id || isSettingMainBoard}>
+                  <Edit3 className="mr-2 h-4 w-4" /> Byt namn på Tavla
+                </Button>
+                <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => { setBoardToManageMembersFor(activeBoard); fetchBoardMemberDetails(activeBoard.id); setIsMemberManagementDialogOpen(true); }} disabled={currentUserRoleOnActiveBoard !== 'owner' && currentUserRoleOnActiveBoard !== 'editor' || isDeletingBoardId === activeBoard.id}>
+                  <UserPlus className="mr-2 h-4 w-4" /> Hantera Medlemmar
+                </Button>
+                {activeBoard.id !== mainBoardId && (
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleSetMainBoard(activeBoard.id)} disabled={isDeletingBoardId === activeBoard.id || isSettingMainBoard}>
+                    <Home className="mr-2 h-4 w-4" /> Ange som Huvudtavla
+                  </Button>
+                )}
+                <Separator />
+                <Button variant="ghost" className="w-full justify-start text-sm text-destructive hover:text-destructive" onClick={() => handleDeleteBoard(activeBoard.id)} disabled={currentUserRoleOnActiveBoard !== 'owner' || isDeletingBoardId === activeBoard.id}>
+                  {isDeletingBoardId === activeBoard.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Radera Tavla
+                </Button>
+                */}
+                 <p className="text-xs text-muted-foreground p-2">Fler tavlåtgärder kommer snart.</p>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+
+      {/* --- START: Month Navigation UI --- */}
+      {activeBoardId && (
+        <div className="flex items-center justify-center sm:justify-start gap-4 my-2">
+          <Button variant="outline" size="icon" onClick={handlePreviousMonth} disabled={isLoadingPageData}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-lg font-medium w-40 text-center tabular-nums">
+            {formattedSelectedMonth}
+          </span>
+          <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoadingPageData || isCurrentMonthOrFuture}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      {/* --- END: Month Navigation UI --- */}
+
+
+      {isLoadingPageData && activeBoardId && (
+         <div className="flex justify-center items-center h-64 col-span-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /> Laddar data för {formattedSelectedMonth}...</div>
+      )}
+
+      {!isLoadingPageData && activeBoardId && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 overflow-auto">
+          {/* Income and Expense Summary */}
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <CardTitle>Översikt för {formattedSelectedMonth}</CardTitle>
+              <CardDescription>på tavlan "{activeBoardName}"</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-accent">Totala Inkomster</h3>
+                <p className="text-2xl font-bold">{totalIncomeForMonth.toLocaleString('sv-SE')} kr</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-destructive">Totala Utgifter</h3>
+                <p className="text-2xl font-bold">{totalExpensesForMonth.toLocaleString('sv-SE')} kr</p>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Nettosaldo</h3>
+                <p className={`text-2xl font-bold ${(totalIncomeForMonth - totalExpensesForMonth) >= 0 ? 'text-accent' : 'text-destructive'}`}>
+                  {(totalIncomeForMonth - totalExpensesForMonth).toLocaleString('sv-SE')} kr
+                </p>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full" onClick={handleOpenNewTransactionDialog} disabled={!canEditActiveBoard}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Lägg till Ny Transaktion
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* Transactions List */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Transaktioner för {formattedSelectedMonth}</CardTitle>
+              <div className="flex justify-end">
+                 {/* <Switch id="show-all-transactions" onCheckedChange={setShowAllTransactions} checked={showAllTransactions} />
+                 <Label htmlFor="show-all-transactions" className="ml-2 text-sm">Visa alla</Label> */}
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[300px] md:h-[400px]">
+                <div className="divide-y divide-border">
+                  {(incomeTransactions.length === 0 && expenseTransactions.length === 0) && (
+                     <p className="p-4 text-center text-muted-foreground">Inga transaktioner för {formattedSelectedMonth}.</p>
+                  )}
+                  {incomeTransactions.length > 0 && (
+                    <>
+                      <h4 className="text-sm font-semibold p-3 bg-muted/50">Inkomster</h4>
+                      {incomeTransactions.map(t => (
+                        <div key={t.id} className="p-3 hover:bg-muted/30 flex justify-between items-center">
+                          <div>
+                            <p className="font-medium">{t.title}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(t.date + 'T00:00:00').toLocaleDateString('sv-SE')} - {categories.find(c => c.id === t.category)?.name || 'Okategoriserad'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-accent">+ {t.amount.toLocaleString('sv-SE')} kr</p>
+                            {canEditActiveBoard && (
+                              <div className="flex gap-1 justify-end mt-1">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(t)}><Edit3 className="h-3 w-3" /></Button>
+                                {/* <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteTransaction(t)}><Trash2 className="h-3 w-3" /></Button> */}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {expenseTransactions.length > 0 && (
+                     <>
+                      <h4 className="text-sm font-semibold p-3 bg-muted/50">Utgifter</h4>
+                      {expenseTransactions.map(t => (
+                         <div key={t.id} className="p-3 hover:bg-muted/30 flex justify-between items-center">
+                          <div>
+                            <p className="font-medium">{t.title}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(t.date + 'T00:00:00').toLocaleDateString('sv-SE')} - {categories.find(c => c.id === t.category)?.name || 'Okategoriserad'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-destructive">- {t.amount.toLocaleString('sv-SE')} kr</p>
+                             {canEditActiveBoard && (
+                              <div className="flex gap-1 justify-end mt-1">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(t)}><Edit3 className="h-3 w-3" /></Button>
+                                {/* <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteTransaction(t)}><Trash2 className="h-3 w-3" /></Button> */}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Category Overview */}
+          <Card className="md:col-span-3">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Kategoriöversikt för {formattedSelectedMonth}</CardTitle>
+              <Button variant="outline" size="sm" onClick={() => handleOpenCategoryDialog()} disabled={!canEditActiveBoard}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Hantera Kategorier
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {Object.entries(categoryTotals).filter(([,data]) => data.type === 'expense' && data.total > 0).length > 0 ? (
+                <ScrollArea className="h-[200px] md:h-auto">
+                  <ul className="space-y-2">
+                    {Object.entries(categoryTotals)
+                      .filter(([, data]) => data.type === 'expense' && data.total > 0) // Only expenses with totals
+                      .sort(([, a], [, b]) => b.total - a.total) // Sort by total descending
+                      .map(([catId, data]) => {
+                        const category = categories.find(c => c.id === catId);
+                        return (
+                          <li key={catId} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30">
+                            <div className="flex items-center">
+                              {getCategoryIcon(category?.name || '', 'expense', category?.iconName)}
+                              <span className="font-medium">{category?.name || 'Okänd Kategori'}</span>
+                            </div>
+                            <span className="font-semibold text-destructive">{data.total.toLocaleString('sv-SE')} kr</span>
+                          </li>
+                        );
+                    })}
+                  </ul>
+                </ScrollArea>
+              ) : (
+                <p className="text-center text-muted-foreground py-4">Inga utgifter att visa i kategoriöversikten för {formattedSelectedMonth}.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {!activeBoardId && !isLoadingBoards && (
+        <div className="flex flex-col items-center justify-center h-full text-center col-span-full">
+            <Shapes className="h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold">Välj eller Skapa en Tavla</h2>
+            <p className="text-muted-foreground">För att börja, välj en befintlig budgettavla ovan eller skapa en ny.</p>
+            {/* Keep Add Board Button commented out for now
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button className="mt-4"><PlusCircle className="mr-2 h-4 w-4" /> Skapa Ny Tavla</Button>
+                </DialogTrigger>
+                 <DialogContent>
+                    <DialogHeader><DialogTitle>Skapa Ny Tavla</DialogTitle></DialogHeader>
+                    <Input value={newBoardName} onChange={(e) => setNewBoardName(e.target.value)} placeholder="Tavlans Namn" />
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="ghost" data-testid="dialog-close-add-board-empty">Avbryt</Button></DialogClose>
+                        <Button onClick={handleAddBoard}>Skapa Tavla</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            */}
+        </div>
+      )}
+
+
+      {/* Transaction Dialog */}
+      <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingTransaction ? 'Redigera Transaktion' : 'Lägg till Ny Transaktion'}</DialogTitle>
+            <DialogDescription>Fyll i detaljerna för din {editingTransaction ? 'transaktion' : (categories.find(c=>c.id === newTransactionCategory)?.type === 'income' ? 'inkomst' : 'utgift')}.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); /* handleSaveTransaction(); */ }} className="space-y-4">
+            <div>
+              <Label htmlFor="transactionTitle">Titel</Label>
+              <Input id="transactionTitle" value={newTransactionTitle} onChange={e => setNewTransactionTitle(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="transactionAmount">Belopp (kr)</Label>
+              <Input id="transactionAmount" type="number" value={newTransactionAmount} onChange={e => setNewTransactionAmount(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="transactionDate">Datum</Label>
+              <Input id="transactionDate" type="date" value={newTransactionDate} onChange={e => setNewTransactionDate(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="transactionCategory">Kategori</Label>
+              <Select value={newTransactionCategory} onValueChange={setNewTransactionCategory}>
+                <SelectTrigger><SelectValue placeholder="Välj kategori" /></SelectTrigger>
+                <SelectContent>
+                  {categories.filter(cat => (editingTransaction ? cat.type === editingTransaction.type : true)).map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name} ({cat.type === 'income' ? 'Inkomst' : 'Utgift'})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="transactionDescription">Beskrivning (Valfritt)</Label>
+              <Textarea id="transactionDescription" value={newTransactionDescription} onChange={e => setNewTransactionDescription(e.target.value)} />
+            </div>
+            <DialogFooter>
+              <DialogClose asChild><Button type="button" variant="outline">Avbryt</Button></DialogClose>
+              <Button type="submit" disabled={isSavingTransaction || !canEditActiveBoard}>
+                {isSavingTransaction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (editingTransaction ? 'Spara Ändringar' : 'Lägg till')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
+        setIsCategoryDialogOpen(open);
+        if (!open) resetCategoryForm();
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingCategory ? 'Redigera Kategori' : 'Skapa Ny Kategori'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); /* handleSaveCategory(); */ }} className="space-y-4">
+             <div>
+              <Label htmlFor="categoryName">Namn</Label>
+              <Input id="categoryName" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
+            </div>
+            {!editingCategory && (
+              <div>
+                <Label htmlFor="categoryType">Typ</Label>
+                <Select value={newCategoryType} onValueChange={(value) => setNewCategoryType(value as 'income' | 'expense')}>
+                  <SelectTrigger><SelectValue placeholder="Välj typ" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">Inkomst</SelectItem>
+                    <SelectItem value="expense">Utgift</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+                <Label htmlFor="categoryIcon">Ikon</Label>
+                <Select value={newCategoryIconName} onValueChange={setNewCategoryIconName}>
+                    <SelectTrigger><SelectValue placeholder="Välj ikon" /></SelectTrigger>
+                    <SelectContent className="max-h-60">
+                        {iconOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                                <div className="flex items-center">
+                                    <opt.Icon className="mr-2 h-5 w-5" /> {opt.label}
+                                </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            {editingCategory && (
+              <Button variant="destructive" type="button" onClick={() => { /* handleDeleteCategory(editingCategory.id, editingCategory.name); */ setIsCategoryDialogOpen(false); }} className="w-full justify-start" disabled={!canEditActiveBoard}>
+                <Trash2 className="mr-2 h-4 w-4" /> Radera Kategori
+              </Button>
+            )}
+            <DialogFooter>
+              <DialogClose asChild><Button type="button" variant="outline">Avbryt</Button></DialogClose>
+              <Button type="submit" disabled={!canEditActiveBoard}>{editingCategory ? 'Spara Ändringar' : 'Skapa Kategori'}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+        {/* Member Management Dialog - Keep commented out for now
+       <Dialog open={isMemberManagementDialogOpen} onOpenChange={(open) => {
+          if (!open) { setBoardToManageMembersFor(null); setListedMembers([]); setInviteUserUidInput(''); }
+          setIsMemberManagementDialogOpen(open);
+        }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Hantera Medlemmar för "{boardToManageMembersFor?.name}"</DialogTitle>
+            <DialogDescription>Bjud in nya medlemmar eller ändra befintligas roller.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="inviteUserUid">Bjud in via Användar-ID (UID)</Label>
+              <div className="flex gap-2">
+                <Input id="inviteUserUid" placeholder="Användarens UID" value={inviteUserUidInput} onChange={e => setInviteUserUidInput(e.target.value)} className="flex-1"/>
+                 <Select value={inviteUserRoleInput} onValueChange={(value) => setInviteUserRoleInput(value as 'viewer' | 'editor')}>
+                    <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="viewer">Granskare</SelectItem>
+                        <SelectItem value="editor">Redaktör</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleAddOrUpdateMemberByUid} disabled={isProcessingMemberAction || !inviteUserUidInput.trim()} className="w-full">
+                {isProcessingMemberAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : "Bjud in / Uppdatera Roll"}
+              </Button>
+            </div>
+            <Separator />
+            <h4 className="text-sm font-medium">Befintliga Medlemmar (exkl. ägare)</h4>
+            {isLoadingMembers ? (<div className="text-center"><Loader2 className="h-6 w-6 animate-spin" /></div>) :
+              listedMembers.length > 0 ? (
+              <ScrollArea className="h-[150px]">
+                <ul className="space-y-2">
+                  {listedMembers.map(member => (
+                    <li key={member.uid} className="flex items-center justify-between p-2 border rounded-md">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" title={member.displayName}>{member.displayName}</p>
+                        <p className="text-xs text-muted-foreground">UID: {member.uid.substring(0,6)}...</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Select value={member.role} onValueChange={(newRole) => handleUpdateListedMemberRole(boardToManageMembersFor!.id, member.uid, newRole as 'viewer' | 'editor')} disabled={isProcessingMemberAction}>
+                            <SelectTrigger className="w-[120px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="viewer">Granskare</SelectItem>
+                                <SelectItem value="editor">Redaktör</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemoveListedMember(boardToManageMembersFor!.id, member.uid, member.displayName)} disabled={isProcessingMemberAction}><Trash2 className="h-4 w-4"/></Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            ) : (<p className="text-sm text-muted-foreground text-center">Inga andra medlemmar än ägaren.</p>)}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Stäng</Button></DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      */}
+    </div>
   );
 }
         
