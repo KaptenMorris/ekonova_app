@@ -39,8 +39,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns'; // Removed month navigation specific imports
-import { sv } from 'date-fns/locale';
+// Removed format and parseISO from date-fns as monthly filtering is temporarily removed
 
 
 // Lucide icons map for dynamic rendering
@@ -135,7 +134,6 @@ export default function DashboardPage() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  // Removed: selectedMonthDate state and related handlers
 
   const [isLoadingBoards, setIsLoadingBoards] = useState(true);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
@@ -150,7 +148,7 @@ export default function DashboardPage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [newTransactionTitle, setNewTransactionTitle] = useState('');
   const [newTransactionAmount, setNewTransactionAmount] = useState<string | number>('');
-  const [newTransactionDate, setNewTransactionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newTransactionDate, setNewTransactionDate] = useState(new Date().toISOString().split('T')[0]); // Default to current date for simplified version
   const [newTransactionCategory, setNewTransactionCategory] = useState<string | undefined>(undefined);
   const [newTransactionDescription, setNewTransactionDescription] = useState('');
   const [isSavingTransaction, setIsSavingTransaction] = useState(false);
@@ -185,8 +183,6 @@ export default function DashboardPage() {
   const activeBoard = useMemo(() => boards.find(b => b.id === activeBoardId), [boards, activeBoardId]);
   const currentUserRoleOnActiveBoard = useMemo(() => getUserRole(activeBoard), [getUserRole, activeBoard]);
   const canEditActiveBoard = useMemo(() => currentUserRoleOnActiveBoard === 'owner' || currentUserRoleOnActiveBoard === 'editor', [currentUserRoleOnActiveBoard]);
-
-  // Removed: Month Navigation handlers and isCurrentMonthOrFuture
 
 
   useEffect(() => {
@@ -270,7 +266,7 @@ export default function DashboardPage() {
       setCategories([]);
     });
     return () => unsubscribe();
-  }, [currentUser?.uid, toast, mainBoardId, userBoardOrderFromContext, activeBoardId]); // Added activeBoardId to ensure name consistency
+  }, [currentUser?.uid, toast, mainBoardId, userBoardOrderFromContext, activeBoardId]);
 
 
   // useEffect for categories (depends on activeBoardId)
@@ -317,13 +313,13 @@ export default function DashboardPage() {
       setTransactions(allTransactions);
       setIsLoadingTransactions(false);
     }, (error) => {
-      console.error("Error fetching transactions:", error); // Updated error message
+      console.error("Error fetching transactions:", error);
       toast({ title: "Fel", description: "Kunde inte hämta transaktioner för tavlan.", variant: "destructive" });
       setIsLoadingTransactions(false);
     });
 
     return () => unsubTransactions();
-  }, [currentUser?.uid, activeBoardId, toast]); // Removed selectedMonthDate dependency
+  }, [currentUser?.uid, activeBoardId, toast]);
 
 
   const categoryTotals = useMemo(() => {
@@ -339,7 +335,7 @@ export default function DashboardPage() {
     return totals;
   }, [transactions, categories]);
 
-
+/*
   const handleAddBoard = async () => {
     if (!currentUser || !currentUser.uid || newBoardName.trim() === '') {
       toast({ title: "Fel", description: "Tavlans namn får inte vara tomt.", variant: "destructive" });
@@ -390,6 +386,7 @@ export default function DashboardPage() {
     }
   };
 
+  /* // handleDeleteBoard was previously commented out like this. Keep it JS-commented for now.
   const handleDeleteBoard = async (boardId: string) => {
     if (!currentUser?.uid) {
       toast({ title: "Fel", description: "Ingen användare inloggad.", variant: "destructive" });
@@ -429,8 +426,8 @@ export default function DashboardPage() {
       setIsDeletingBoardId(null);
     }
   };
-
-
+  */
+/*
   const handleRenameBoard = async (boardId: string, newName: string) => {
     if (!currentUser || newName.trim() === '') {
       toast({ title: "Fel", description: "Tavlans namn får inte vara tomt.", variant: "destructive" });
@@ -763,7 +760,7 @@ export default function DashboardPage() {
   const resetTransactionForm = () => {
     setNewTransactionTitle('');
     setNewTransactionAmount('');
-    setNewTransactionDate(format(new Date(), 'yyyy-MM-dd')); // Default to current date
+    setNewTransactionDate(new Date().toISOString().split('T')[0]); // Default to current date for simplified version
     setNewTransactionCategory(undefined);
     setNewTransactionDescription('');
     setEditingTransaction(null);
@@ -914,7 +911,7 @@ export default function DashboardPage() {
         setIsSettingMainBoard(false);
     }
   };
-
+*/
   /*
   const handleMoveBoard = async (boardId: string, direction: 'up' | 'down') => {
     if (!currentUser?.uid || !userBoardOrderFromContext || isUpdatingBoardOrder) return;
@@ -975,508 +972,8 @@ export default function DashboardPage() {
       return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /> LADDAR TAVLOR...</div>;
   }
 
-
   return (
-    <div className="flex flex-col h-full gap-6">
-       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-2 overflow-x-auto pb-2">
-          {boards.map((board, index) => (
-            <Button
-              key={board.id}
-              variant={activeBoardId === board.id ? 'default' : 'outline'}
-              onClick={() => {
-                setActiveBoardId(board.id);
-                setActiveBoardName(board.name);
-              }}
-              className="relative group shrink-0"
-              asChild
-            >
-              <div className="flex items-center cursor-pointer p-2">
-                <span className="truncate">{board.name}</span>
-                {board.id === mainBoardId && <Star className="h-4 w-4 text-yellow-500 ml-2 shrink-0" />}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="ml-2 h-6 w-6 opacity-50 group-hover:opacity-100 shrink-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-2">
-                    { (getUserRole(board) === 'owner' || getUserRole(board) === 'editor') && (
-                      <Dialog>
-                        <DialogTrigger asChild><Button variant="ghost" className="w-full justify-start text-sm p-2"><Edit3 className="mr-2 h-4 w-4" /> Ändra namn</Button></DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Ändra namn på tavla</DialogTitle>
-                            <DialogDescription>Ange ett nytt namn för tavlan "{board.name}".</DialogDescription>
-                          </DialogHeader>
-                          <Input
-                            defaultValue={board.name}
-                            onBlur={(e) => { if (e.target.value.trim() !== board.name && e.target.value.trim() !== '') handleRenameBoard(board.id, e.target.value); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { const target = e.target as HTMLInputElement; if (target.value.trim() !== board.name && target.value.trim() !== '') { handleRenameBoard(board.id, target.value); (e.target as HTMLElement).closest('div[role="dialog"]')?.querySelector('button[aria-label="Close"]')?.click();}}}}
-                          />
-                          <DialogFooter><DialogClose asChild><Button variant="outline">Avbryt</Button></DialogClose></DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                     <Dialog open={isMemberManagementDialogOpen && boardToManageMembersFor?.id === board.id} onOpenChange={(open) => {
-                            if (!open) {
-                                setBoardToManageMembersFor(null);
-                                setInviteUserUidInput('');
-                                setInviteUserRoleInput('viewer');
-                                setListedMembers([]);
-                                setIsLoadingMembers(false);
-                            }
-                            setIsMemberManagementDialogOpen(open);
-                        }}>
-                        <DialogTrigger asChild>
-                            <Button variant="ghost" className="w-full justify-start text-sm p-2" onClick={() => {setBoardToManageMembersFor(board); fetchBoardMemberDetails(board.id); setIsMemberManagementDialogOpen(true);}}>
-                            <UserPlus className="mr-2 h-4 w-4" /> Hantera Medlemmar
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px]">
-                            <DialogHeader>
-                                <DialogTitle>Hantera Medlemmar för '{boardToManageMembersFor?.name || board.name}'</DialogTitle>
-                                 <DialogDescription>
-                                    Bjud in nya användare med deras UID eller hantera roller och ta bort befintliga medlemmar. En användares UID hittas på deras Kontoinställningar-sida.
-                                </DialogDescription>
-                            </DialogHeader>
-
-                            <h4 className="font-semibold mb-2 text-md sticky top-0 bg-background py-1">Nuvarande Medlemmar</h4>
-                            <ScrollArea className="my-4 max-h-[200px] sm:max-h-[250px] pr-3">
-                              {isLoadingMembers ? (
-                                <div className="flex justify-center items-center h-20">
-                                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                  <span className="ml-2 text-sm text-muted-foreground">Laddar medlemmar...</span>
-                                </div>
-                              ) : listedMembers.length > 0 ? (
-                                <div className="space-y-3">
-                                  {listedMembers.map(member => (
-                                    <div key={member.uid} className="flex items-center justify-between p-2 border rounded-md gap-2">
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate" title={member.displayName}>{member.displayName}</p>
-                                        <p className="text-xs text-muted-foreground truncate" title={member.uid}>UID: {member.uid}</p>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Select
-                                          value={member.role}
-                                          onValueChange={(newRole) => handleUpdateListedMemberRole(board.id, member.uid, newRole as 'viewer' | 'editor')}
-                                          disabled={isProcessingMemberAction || getUserRole(boardToManageMembersFor) !== 'owner' && getUserRole(boardToManageMembersFor) !== 'editor'}
-                                        >
-                                          <SelectTrigger className="h-8 w-[110px] text-xs">
-                                            <SelectValue placeholder="Välj roll" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="viewer" className="text-xs">Granskare</SelectItem>
-                                            <SelectItem value="editor" className="text-xs">Redaktör</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 text-destructive hover:text-destructive"
-                                          onClick={() => {
-                                            if (boardToManageMembersFor) {
-                                                handleRemoveListedMember(boardToManageMembersFor.id, member.uid, member.displayName);
-                                            }
-                                          }}
-                                          disabled={isProcessingMemberAction || getUserRole(boardToManageMembersFor) !== 'owner' && getUserRole(boardToManageMembersFor) !== 'editor'}
-                                          aria-label={`Ta bort medlem ${member.displayName}`}
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">Inga andra medlemmar på denna tavla.</p>
-                              )}
-                            </ScrollArea>
-
-                            <Separator className="my-4" />
-
-                            <div>
-                              <h4 className="font-semibold mb-2 text-md">Bjud in Ny Medlem / Uppdatera Roll</h4>
-                              <DialogDescription className="text-sm text-muted-foreground mb-3">
-                                Ange UID och välj en roll för att bjuda in en ny medlem eller uppdatera en befintlig medlems roll på denna tavla.
-                              </DialogDescription>
-                              <div className="space-y-3">
-                                  <div>
-                                      <Label htmlFor="inviteUserUidInput" className="text-xs">Användar-ID (UID)</Label>
-                                      <Input id="inviteUserUidInput" placeholder="Klistra in användarens UID här" value={inviteUserUidInput} onChange={e => setInviteUserUidInput(e.target.value)} className="h-9"/>
-                                  </div>
-                                  <div>
-                                      <Label htmlFor="inviteUserRoleSelect" className="text-xs">Roll för Användare</Label>
-                                      <Select value={inviteUserRoleInput} onValueChange={(value) => setInviteUserRoleInput(value as 'viewer' | 'editor')}
-                                        disabled={getUserRole(boardToManageMembersFor) !== 'owner' && getUserRole(boardToManageMembersFor) !== 'editor'}
-                                      >
-                                          <SelectTrigger id="inviteUserRoleSelect" className="h-9">
-                                              <SelectValue placeholder="Välj roll" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                              <SelectItem value="viewer">Granskare (kan se)</SelectItem>
-                                              <SelectItem value="editor">Redaktör (kan se och ändra)</SelectItem>
-                                          </SelectContent>
-                                      </Select>
-                                  </div>
-                                  <Button onClick={handleAddOrUpdateMemberByUid}
-                                    disabled={isProcessingMemberAction || !inviteUserUidInput.trim() || (getUserRole(boardToManageMembersFor) !== 'owner' && getUserRole(boardToManageMembersFor) !== 'editor')}
-                                    className="w-full sm:w-auto"
-                                  >
-                                      {isProcessingMemberAction && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                      Spara ändringar
-                                  </Button>
-                              </div>
-                            </div>
-
-                            <DialogFooter className="mt-6">
-                            <Button variant="outline" onClick={() => {setIsMemberManagementDialogOpen(false); setBoardToManageMembersFor(null); setInviteUserUidInput(''); setInviteUserRoleInput('viewer'); setListedMembers([]); setIsLoadingMembers(false);}}>Stäng</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                        </Dialog>
-                    <Button
-                        variant="ghost"
-                        className="w-full justify-start text-sm p-2"
-                        onClick={() => handleSetMainBoard(board.id)}
-                        disabled={board.id === mainBoardId || isSettingMainBoard}
-                    >
-                        {isSettingMainBoard && board.id === activeBoardId ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className="mr-2 h-4 w-4" />}
-                        {board.id === mainBoardId ? 'Detta är Huvudtavla' : 'Ange som Huvudtavla'}
-                    </Button>
-
-                    {/* { boards.length > 1 && (
-                        <>
-                           <Button
-                                variant="ghost"
-                                className="w-full justify-start text-sm p-2"
-                                onClick={() => handleMoveBoard(board.id, 'up')}
-                                disabled={isUpdatingBoardOrder || index === 0}
-                            >
-                                <ArrowUp className="mr-2 h-4 w-4" /> Flytta Uppåt
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                className="w-full justify-start text-sm p-2"
-                                onClick={() => handleMoveBoard(board.id, 'down')}
-                                disabled={isUpdatingBoardOrder || index === boards.length - 1}
-                            >
-                                <ArrowDown className="mr-2 h-4 w-4" /> Flytta Nedåt
-                            </Button>
-                        </>
-                    )} */}
-
-                    {currentUser?.uid === board.ownerUid && (
-                        <Button
-                            variant="ghost"
-                            className="w-full justify-start text-sm p-2 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteBoard(board.id)}
-                            disabled={isDeletingBoardId === board.id}
-                        >
-                            {isDeletingBoardId === board.id ?
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> :
-                                <Trash2 className="mr-2 h-4 w-4" />
-                            }
-                            Radera
-                        </Button>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </Button>
-          ))}
-        </div>
-        <Dialog>
-          <DialogTrigger asChild><Button variant="outline" className="shrink-0 w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Skapa ny tavla</Button></DialogTrigger>
-          <DialogContent data-testid="dialog-add-board">
-            <DialogHeader>
-                <DialogTitle>Skapa ny tavla</DialogTitle>
-                <DialogDescription>Ange ett namn för din nya budgettavla.</DialogDescription>
-            </DialogHeader>
-            <Input placeholder="Tavlans namn" value={newBoardName} onChange={(e) => setNewBoardName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleAddBoard(); }}/>
-            <DialogFooter>
-              <DialogClose asChild data-testid="dialog-close-add-board"><Button variant="ghost">Avbryt</Button></DialogClose>
-              <Button onClick={handleAddBoard}>Skapa</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Removed Month Navigation UI */}
-
-      <div className="flex-1 overflow-y-auto space-y-6 pr-1 pb-2">
-        {(isLoadingTransactions || isLoadingCategories) && activeBoardId && (
-           <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /> Laddar data för {activeBoardName || 'tavlan'}...</div>
-        )}
-        {!isLoadingTransactions && !isLoadingCategories && activeBoard && (
-          <>
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-lg">Inkomster</CardTitle>
-                  {/* Removed month from description */}
-                  <CardDescription>för {activeBoardName || "valda tavlan"}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-4 overflow-y-auto p-4 max-h-[240px] md:max-h-[300px] lg:max-h-[calc(100vh-550px)] xl:max-h-[calc(100vh-500px)]">
-                  {incomeTransactions.map(transaction => (
-                    <Card key={transaction.id} className="p-3 shadow-sm">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-semibold truncate">{transaction.title}</h4>
-                          <p className="text-xs text-muted-foreground">{new Date(transaction.date).toLocaleDateString('sv-SE')} - {categories.find(c=>c.id === transaction.category)?.name}</p>
-                          {transaction.description && <p className="text-xs mt-1 break-words">{transaction.description}</p>}
-                        </div>
-                        <div className="flex flex-col items-end sm:items-center gap-1 mt-2 sm:mt-0 w-full sm:w-auto">
-                           <p className="font-semibold text-accent whitespace-nowrap text-right sm:text-left w-full sm:w-auto">+ {transaction.amount.toLocaleString('sv-SE')} kr</p>
-                          {canEditActiveBoard && (
-                            <div className="flex justify-end sm:justify-start w-full sm:w-auto">
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(transaction)}><Edit3 className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteTransaction(transaction)}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                  {incomeTransactions.length === 0 && <p className="text-sm text-muted-foreground">Inga inkomsttransaktioner.</p>}
-                </CardContent>
-                {/* Removed month from footer */}
-                <CardFooter className="border-t p-4"><div className="flex justify-between w-full font-semibold"><span className="text-accent">Total Inkomst:</span><span className="text-accent">+ {getTotal('income').toLocaleString('sv-SE')} kr</span></div></CardFooter>
-              </Card>
-
-              <Card className="flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-lg">Utgifter</CardTitle>
-                  {/* Removed month from description */}
-                  <CardDescription>för {activeBoardName || "valda tavlan"}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-4 overflow-y-auto p-4 max-h-[240px] md:max-h-[300px] lg:max-h-[calc(100vh-550px)] xl:max-h-[calc(100vh-500px)]">
-                  {expenseTransactions.map(transaction => (
-                    <Card key={transaction.id} className="p-3 shadow-sm">
-                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-semibold truncate">{transaction.title}</h4>
-                          <p className="text-xs text-muted-foreground">{new Date(transaction.date).toLocaleDateString('sv-SE')} - {categories.find(c=>c.id === transaction.category)?.name}</p>
-                          {transaction.description && <p className="text-xs mt-1 break-words">{transaction.description}</p>}
-                        </div>
-                        <div className="flex flex-col items-end sm:items-center gap-1 mt-2 sm:mt-0 w-full sm:w-auto">
-                           <p className="font-semibold text-destructive whitespace-nowrap text-right sm:text-left w-full sm:w-auto">- {transaction.amount.toLocaleString('sv-SE')} kr</p>
-                           {canEditActiveBoard && (
-                            <div className="flex justify-end sm:justify-start w-full sm:w-auto">
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(transaction)}><Edit3 className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteTransaction(transaction)}><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                           )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                  {expenseTransactions.length === 0 && <p className="text-sm text-muted-foreground">Inga utgiftstransaktioner.</p>}
-                </CardContent>
-                {/* Removed month from footer */}
-                <CardFooter className="border-t p-4"><div className="flex justify-between w-full font-semibold"><span className="text-destructive">Total Utgift:</span><span className="text-destructive">- {getTotal('expense').toLocaleString('sv-SE')} kr</span></div></CardFooter>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Kategoriöversikt</CardTitle>
-                  {/* Removed month from description */}
-                  <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''}.</CardDescription>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="category-edit-mode"
-                    checked={isCategoryEditMode}
-                    onCheckedChange={setIsCategoryEditMode}
-                    disabled={!activeBoardId || !canEditActiveBoard || isLoadingTransactions || isLoadingCategories}
-                  />
-                  <Label
-                    htmlFor="category-edit-mode"
-                    className={cn(
-                      "text-sm",
-                      (!activeBoardId || !canEditActiveBoard || isLoadingTransactions || isLoadingCategories) && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    Redigera Kategorier
-                  </Label>
-                </div>
-              </CardHeader>
-              <CardContent className="grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 max-h-[300px] md:max-h-[400px] lg:max-h-[calc(100vh-600px)] overflow-y-auto">
-                <div>
-                  {/* Removed month from header */}
-                  <h3 className="text-md font-semibold mb-3 border-b pb-2 sticky top-0 bg-card z-10">Inkomstkategorier</h3>
-                  {categories.filter(cat => cat.type === 'income').length > 0 ? (
-                    <ul className="space-y-3">
-                      {categories.filter(cat => cat.type === 'income').map(cat => (
-                        <li key={cat.id} className="flex items-center justify-between text-sm p-3 border rounded-md shadow-sm hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="font-semibold text-accent">+ {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
-                            {(isCategoryEditMode && canEditActiveBoard) && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenCategoryDialog(cat)} aria-label={`Redigera kategori ${cat.name}`}><Edit3 className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(cat.id, cat.name)} aria-label={`Radera kategori ${cat.name}`}><Trash2 className="h-4 w-4" /></Button>
-                              </>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (<p className="text-sm text-muted-foreground">Inga inkomstkategorier än.</p>)}
-                </div>
-                <div>
-                  {/* Removed month from header */}
-                  <h3 className="text-md font-semibold mb-3 border-b pb-2 sticky top-0 bg-card z-10">Utgiftskategorier</h3>
-                  {categories.filter(cat => cat.type === 'expense').length > 0 ? (
-                    <ul className="space-y-3">
-                      {categories.filter(cat => cat.type === 'expense').map(cat => (
-                        <li key={cat.id} className="flex items-center justify-between text-sm p-3 border rounded-md shadow-sm hover:bg-muted/50 transition-colors">
-                           <div className="flex items-center min-w-0 mr-2">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="truncate">{cat.name}</span></div>
-                           <div className="flex items-center gap-1 shrink-0">
-                            <span className="font-semibold text-destructive">- {(categoryTotals[cat.id]?.total || 0).toLocaleString('sv-SE')} kr</span>
-                            {(isCategoryEditMode && canEditActiveBoard) && (
-                              <>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenCategoryDialog(cat)} aria-label={`Redigera kategori ${cat.name}`}><Edit3 className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(cat.id, cat.name)} aria-label={`Radera kategori ${cat.name}`}><Trash2 className="h-4 w-4" /></Button>
-                              </>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (<p className="text-sm text-muted-foreground">Inga utgiftskategorier än.</p>)}
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-xl text-muted-foreground text-center">
-              {boards.length === 0 && !isLoadingBoards ? 'Skapa din första budgettavla!' :
-               !activeBoardId && boards.length > 0 ? 'Välj en tavla för att se dess data.' :
-               ''}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-auto sticky bottom-0 bg-background py-4 border-t px-2 sm:px-0">
-        <Button
-          className="flex-1"
-          disabled={!activeBoardId || isLoadingTransactions || isLoadingCategories || isSavingTransaction || !canEditActiveBoard}
-          onClick={handleOpenNewTransactionDialog}
-        >
-          <PlusCircle className="mr-2 h-4 w-4" /> Lägg till Ny Transaktion
-        </Button>
-
-        <Dialog open={isCategoryDialogOpen} onOpenChange={(isOpen) => {
-            setIsCategoryDialogOpen(isOpen);
-            if (!isOpen) resetCategoryForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button variant="outline" className="flex-1" disabled={!activeBoardId  || isLoadingTransactions || isLoadingCategories || !canEditActiveBoard} onClick={() => handleOpenCategoryDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" /> {editingCategory ? 'Redigera Kategori' : 'Ny Kategori'}
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingCategory ? 'Redigera Kategori' : 'Skapa Ny Kategori'}</DialogTitle>
-              <DialogDescription>
-                {editingCategory ? `Redigera namn och ikon för kategorin "${editingCategory.name}". Typen kan inte ändras.` : 'Ange namn, typ och ikon för din nya kategori.'}
-              </DialogDescription>
-            </DialogHeader>
-             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="catName" className="text-right">Namn</Label><Input id="catName" placeholder="T.ex. Lön, Matvaror" className="col-span-3" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} /></div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="catType" className="text-right">Typ</Label>
-                 <Select
-                    value={newCategoryType}
-                    onValueChange={(value) => setNewCategoryType(value as 'income' | 'expense')}
-                    disabled={!!editingCategory}
-                  >
-                  <SelectTrigger className="col-span-3"><SelectValue placeholder="Välj typ..." /></SelectTrigger>
-                  <SelectContent><SelectItem value="income">Inkomst</SelectItem><SelectItem value="expense">Utgift</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="catIcon" className="text-right">Ikon</Label>
-                 <Select value={newCategoryIconName} onValueChange={setNewCategoryIconName}>
-                  <SelectTrigger className="col-span-3"><SelectValue placeholder="Välj ikon..." /></SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
-                    {iconOptions.map(({ value, label, Icon }) => (<SelectItem key={value} value={value}><div className="flex items-center"><Icon className="mr-2 h-4 w-4" />{label}</div></SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setIsCategoryDialogOpen(false); resetCategoryForm();}}>Avbryt</Button>
-              <Button onClick={handleSaveCategory}>{editingCategory ? 'Spara ändringar' : 'Skapa Kategori'}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Dialog open={isTransactionDialogOpen} onOpenChange={(isOpen) => {
-          setIsTransactionDialogOpen(isOpen);
-          if (!isOpen) {
-            resetTransactionForm();
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingTransaction ? 'Redigera Transaktion' : 'Lägg till Ny Transaktion'}</DialogTitle>
-            {/* Removed month from description */}
-            <DialogDescription>Fyll i detaljerna för din transaktion.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">Titel</Label>
-              <Input id="title" placeholder="T.ex. Lön, Matinköp" className="col-span-3" value={newTransactionTitle} onChange={e => setNewTransactionTitle(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amount" className="text-right">Belopp</Label>
-              <Input id="amount" type="number" placeholder="50.00" className="col-span-3" value={newTransactionAmount} onChange={e => setNewTransactionAmount(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="date" className="text-right">Datum</Label>
-              {/* Default date for new transactions is now current date */}
-              <Input id="date" type="date" className="col-span-3" value={newTransactionDate} onChange={e => setNewTransactionDate(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="category" className="text-right">Kategori</Label>
-              <Select value={newTransactionCategory} onValueChange={setNewTransactionCategory}>
-                <SelectTrigger className="col-span-3"><SelectValue placeholder="Välj kategori..." /></SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      <div className="flex items-center">{getCategoryIcon(cat.name, cat.type, cat.iconName)}<span className="ml-2">{cat.name} ({cat.type === 'income' ? 'Inkomst' : 'Utgift'})</span></div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">Beskrivning</Label>
-              <Textarea id="description" placeholder="Frivillig beskrivning..." className="col-span-3" value={newTransactionDescription} onChange={e => setNewTransactionDescription(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTransactionDialogOpen(false)} disabled={isSavingTransaction}>Avbryt</Button>
-            <Button onClick={handleSaveTransaction} disabled={isSavingTransaction}>
-              {isSavingTransaction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (editingTransaction ? 'Spara' : 'Lägg till')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    <div>Dashboard Test Content</div>
   );
 }
         
