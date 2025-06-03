@@ -32,7 +32,7 @@ import {
   arrayUnion,
   arrayRemove,
   setDoc,
-  type FieldValue, // Keep specific FieldValue import
+  type FieldValue,
   limit,
 } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -43,7 +43,6 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, pa
 import { sv } from 'date-fns/locale';
 
 
-// Lucide icons map for dynamic rendering
 const iconComponents: { [key: string]: React.ElementType } = {
   Home, Car, ShoppingCart, Clapperboard, Tag, Briefcase, HandCoins, Shapes, Zap, Wifi, Shield, PlusCircle, Activity, Anchor, Award, Banknote, Bike, Bitcoin, Bone, BookOpen, Bookmark, Brain, Bus, Calculator, CalendarDays, Camera, Candy, Castle, Cat, CheckCheck, ChevronDown, ChevronUp, Church, CircleDollarSign, ClipboardList, Clock, Cloud, Code, Coffee, Coins, Compass, Computer, Contact, CookingPot, CreditCard, Crop, Crown, CupSoda, Dog, DollarSign, DoorOpen, Download, Drama, Dribbble, Droplet, Drumstick, Dumbbell, Ear, Egg, FileText, Film, Fish, Flag, Flame, Flashlight, FlaskConical, Flower, Footprints, Fuel: FuelIcon, Gamepad2, Gauge, Gem, Gift, Globe, GraduationCap, Grape, Grid, Hammer, Headphones, Heart, HelpCircle, IceCream, Image, IndianRupee, Infinity, Key, Laptop, Laugh, Layers, Leaf, Library, LifeBuoy, Lightbulb, Link, List, Lock, LogIn, LogOut, Mail, MapIcon, MapPin, Martini, Medal, Megaphone, Menu, Mic, Minus, Monitor, Moon, MousePointer, Move, Music, Navigation, Newspaper, Nut, Option, Package, PaintBucket, Palette, Paperclip, ParkingCircle, PawPrint, PenTool, Pencil, Percent, PersonStanding, Phone, PictureInPicture, PiggyBank, Pin, Pizza, Plane, Play, Plug, Pocket, Podcast, Power, Printer, Puzzle, Quote, Receipt, Recycle, RefreshCcw, Reply, Rocket, RotateCcw, Rss, Ruler, Save, Scale, ScanLine, School, Scissors, ScreenShare, Search, Send, Settings, Share2, Shirt, ShoppingBag, Siren, Slice, Smartphone, Smile, Speaker, Star, Store, Sun, Sunrise, Sunset, Table, Tablet, Target, Tent, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, Train, Trash, TrendingUp, Trophy, Truck, Tv, Umbrella, Upload, User, Utensils, Verified, Video, Volume2, Wallet, Watch, Waves, Wind, Wine, Wrench, Youtube, ZoomIn, UserPlus, Copy,
 };
@@ -56,7 +55,7 @@ interface Transaction {
   id: string;
   title: string;
   amount: number;
-  date: string; // YYYY-MM-DD
+  date: string; 
   category: string;
   description?: string;
   type: 'income' | 'expense';
@@ -117,7 +116,6 @@ const getCategoryIcon = (categoryName: string, categoryType: 'income' | 'expense
   if (categoryType === 'income') {
     colorClass = "text-accent";
   } else if (categoryType === 'expense') {
-    // No specific color for expense icons here, they'll use the default
   }
   return <IconComponent {...iconProps} className={`${iconProps.className} ${colorClass}`} />;
 };
@@ -139,10 +137,10 @@ export default function DashboardPage() {
   const [isLoadingBoards, setIsLoadingBoards] = useState(true);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  // const [isDeletingBoardId, setIsDeletingBoardId] = useState<string | null>(null); // Keep commented out
-  // const [isUpdatingBoardOrder, setIsUpdatingBoardOrder] = useState(false); // Keep commented out
+  const [isDeletingBoardId, setIsDeletingBoardId] = useState<string | null>(null);
+  const [isUpdatingBoardOrder, setIsUpdatingBoardOrder] = useState(false);
 
-  const [newBoardName, setNewBoardName] = useState(''); // For Add Board Dialog
+  const [newBoardName, setNewBoardName] = useState('');
 
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -159,7 +157,7 @@ export default function DashboardPage() {
   const [newCategoryIconName, setNewCategoryIconName] = useState<string | undefined>(iconOptions.find(opt => opt.value === 'Shapes')?.value);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  // const [isCategoryEditMode, setIsCategoryEditMode] = useState(false); // Keep commented out
+  const [isCategoryEditMode, setIsCategoryEditMode] = useState(false);
 
   const [isMemberManagementDialogOpen, setIsMemberManagementDialogOpen] = useState(false);
   const [boardToManageMembersFor, setBoardToManageMembersFor] = useState<Board | null>(null);
@@ -169,9 +167,8 @@ export default function DashboardPage() {
   const [listedMembers, setListedMembers] = useState<ListedMember[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
 
-  // const [isSettingMainBoard, setIsSettingMainBoard] = useState(false); // Keep commented out
+  const [isSettingMainBoard, setIsSettingMainBoard] = useState(false);
 
-  // --- START: Monthly Navigation State and Logic ---
   const [selectedMonthDate, setSelectedMonthDate] = useState<Date>(startOfMonth(new Date()));
 
   const handlePreviousMonth = () => setSelectedMonthDate(prevDate => subMonths(prevDate, 1));
@@ -185,7 +182,6 @@ export default function DashboardPage() {
   const formattedSelectedMonth = useMemo(() => {
     return format(selectedMonthDate, 'MMMM yyyy', { locale: sv });
   }, [selectedMonthDate]);
-  // --- END: Monthly Navigation State and Logic ---
 
 
   const getUserRole = useCallback((board: Board | null | undefined): UserRole => {
@@ -315,7 +311,6 @@ export default function DashboardPage() {
 
     const transactionsRef = collection(db, `boards/${activeBoardId}/transactions`);
     
-    // --- START: Monthly Filtering Logic for Transactions ---
     const currentMonthStart = format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd');
     const currentMonthEnd = format(endOfMonth(selectedMonthDate), 'yyyy-MM-dd');
     
@@ -325,7 +320,6 @@ export default function DashboardPage() {
       where("date", "<=", currentMonthEnd),
       orderBy("date", "desc")
     );
-    // --- END: Monthly Filtering Logic for Transactions ---
 
     const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
       const monthTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
@@ -338,14 +332,14 @@ export default function DashboardPage() {
     });
 
     return () => unsubTransactions();
-  }, [currentUser?.uid, activeBoardId, selectedMonthDate, toast]); // Added selectedMonthDate dependency
+  }, [currentUser?.uid, activeBoardId, selectedMonthDate, toast]);
 
 
   const categoryTotals = useMemo(() => {
     if (!transactions || !categories) return {};
     const totals: Record<string, { total: number, type: 'income' | 'expense' }> = {};
     categories.forEach(cat => { totals[cat.id] = { total: 0, type: cat.type }; });
-    transactions.forEach(t => { // transactions are now month-filtered
+    transactions.forEach(t => { 
       if (totals[t.category] !== undefined) {
         totals[t.category].total += t.amount;
       }
@@ -353,8 +347,7 @@ export default function DashboardPage() {
     return totals;
   }, [transactions, categories]);
 
-
-/*
+  /*
   const handleAddBoard = async () => {
     if (!currentUser || !currentUser.uid || newBoardName.trim() === '') {
       toast({ title: "Fel", description: "Tavlans namn får inte vara tomt.", variant: "destructive" });
@@ -404,7 +397,9 @@ export default function DashboardPage() {
       toast({ title: "Fel vid skapande av tavla", description, variant: "destructive", duration: 10000 });
     }
   };
+  */
 
+  /*
   const handleDeleteBoard = async (boardId: string) => {
     if (!currentUser?.uid) {
       toast({ title: "Fel", description: "Ingen användare inloggad.", variant: "destructive" });
@@ -444,7 +439,9 @@ export default function DashboardPage() {
       setIsDeletingBoardId(null);
     }
   };
+  */
   
+  /*
   const handleRenameBoard = async (boardId: string, newName: string) => {
     if (!currentUser || newName.trim() === '') {
       toast({ title: "Fel", description: "Tavlans namn får inte vara tomt.", variant: "destructive" });
@@ -468,7 +465,9 @@ export default function DashboardPage() {
       toast({ title: "Fel vid omdöpning", description, variant: "destructive", duration: 10000 });
     }
   };
+  */
 
+  /*
   const fetchBoardMemberDetails = async (boardId: string) => {
     if (!boardId || !currentUser) return;
     const currentBoard = boards.find(b => b.id === boardId);
@@ -513,8 +512,9 @@ export default function DashboardPage() {
         setIsLoadingMembers(false);
     }
 };
+*/
 
-
+/*
   const handleAddOrUpdateMemberByUid = async () => {
     if (!currentUser || !boardToManageMembersFor || !inviteUserUidInput.trim()) {
       toast({ title: "Fel", description: "Tavla och användar-ID måste anges.", variant: "destructive" });
@@ -569,7 +569,9 @@ export default function DashboardPage() {
       setIsProcessingMemberAction(false);
     }
   };
+  */
 
+/*
   const handleUpdateListedMemberRole = async (boardId: string, memberUid: string, newRole: 'viewer' | 'editor') => {
     if (!boardId || !memberUid) return;
     setIsProcessingMemberAction(true);
@@ -600,7 +602,9 @@ export default function DashboardPage() {
       setIsProcessingMemberAction(false);
     }
   };
+  */
 
+  /*
   const handleRemoveListedMember = async (boardId: string, memberUid: string, memberDisplayName: string) => {
     if (!currentUser || !currentUser.uid || !boardId || !memberUid) {
         toast({ title: "Fel", description: "Nödvändig information saknas för att ta bort medlem.", variant: "destructive"});
@@ -625,12 +629,6 @@ export default function DashboardPage() {
     setIsProcessingMemberAction(true);
     try {
       const boardDocRef = doc(db, 'boards', boardId);
-      // This part needs to be uncommented carefully or replaced with a safe alternative if FieldValue is problematic
-      // const updates: any = {
-      //   members: arrayRemove(memberUid),
-      //   // [`memberRoles.${memberUid}`]: FieldValue.delete() // FieldValue can be tricky in some envs
-      // };
-      // // Temporary simplified removal of role if FieldValue.delete() is an issue
       const boardSnap = await getDoc(boardDocRef);
       if (boardSnap.exists()) {
           const boardData = boardSnap.data() as Board;
@@ -671,14 +669,18 @@ export default function DashboardPage() {
       setIsProcessingMemberAction(false);
     }
   };
+  */
 
+  /*
   const resetCategoryForm = () => {
     setNewCategoryName('');
     setNewCategoryType(undefined);
     setNewCategoryIconName(iconOptions.find(opt => opt.value === 'Shapes')?.value);
     setEditingCategory(null);
   };
+  */
 
+  /*
   const handleOpenCategoryDialog = (category?: Category) => {
     if (!canEditActiveBoard) {
       toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att hantera kategorier på denna tavla.", variant: "destructive" });
@@ -694,7 +696,9 @@ export default function DashboardPage() {
     }
     setIsCategoryDialogOpen(true);
   };
+  */
 
+  /*
   const handleSaveCategory = async () => {
     if (!currentUser?.uid || !activeBoardId || !categories || !canEditActiveBoard) {
       toast({ title: "Fel", description: "Ingen aktiv tavla vald eller otillräcklig behörighet.", variant: "destructive" });
@@ -713,11 +717,10 @@ export default function DashboardPage() {
     try {
       const categoriesCollectionRef = collection(db, 'boards', activeBoardId, 'categories');
       if (editingCategory) {
-        // Type is not changed on edit
         await updateDoc(doc(categoriesCollectionRef, editingCategory.id), categoryPayload);
         toast({ title: "Kategori Uppdaterad", description: `Kategorin "${newCategoryName}" har uppdaterats.` });
       } else {
-        if (!newCategoryType) { // Should be caught by earlier check, but for safety
+        if (!newCategoryType) { 
           toast({ title: "Fel", description: "Kategorityp måste anges för ny kategori.", variant: "destructive" });
           return;
         }
@@ -736,7 +739,9 @@ export default function DashboardPage() {
       toast({ title: editingCategory ? "Fel vid Uppdatering" : "Fel vid Skapande", description, variant: "destructive" });
     }
   };
+  */
 
+  /*
   const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
     if (!currentUser?.uid || !activeBoardId || !canEditActiveBoard) {
       toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att radera kategorier på denna tavla.", variant: "destructive" });
@@ -787,17 +792,20 @@ export default function DashboardPage() {
       toast({ title: "Fel vid Radering", description, variant: "destructive" });
     }
   };
+  */
 
-
+  /*
   const resetTransactionForm = () => {
     setNewTransactionTitle('');
     setNewTransactionAmount('');
-    setNewTransactionDate(format(selectedMonthDate, 'yyyy-MM-dd')); // Default to first day of selected month
+    setNewTransactionDate(format(selectedMonthDate, 'yyyy-MM-dd')); 
     setNewTransactionCategory(undefined);
     setNewTransactionDescription('');
     setEditingTransaction(null);
   };
+  */
 
+  /*
   const handleOpenNewTransactionDialog = () => {
     if (!canEditActiveBoard) {
       toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att lägga till transaktioner på denna tavla.", variant: "destructive" });
@@ -806,7 +814,9 @@ export default function DashboardPage() {
     resetTransactionForm();
     setIsTransactionDialogOpen(true);
   };
+  */
 
+  /*
   const handleOpenEditTransactionDialog = (transaction: Transaction) => {
      if (!canEditActiveBoard) {
       toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att redigera transaktioner på denna tavla.", variant: "destructive" });
@@ -820,7 +830,9 @@ export default function DashboardPage() {
     setNewTransactionDescription(transaction.description || '');
     setIsTransactionDialogOpen(true);
   };
+  */
 
+  /*
   const handleSaveTransaction = async () => {
     if (!currentUser?.uid || !activeBoardId || !categories || !canEditActiveBoard) {
       toast({ title: "Fel", description: "Ingen aktiv tavla, kategorier laddade eller otillräcklig behörighet.", variant: "destructive" });
@@ -846,7 +858,7 @@ export default function DashboardPage() {
     const transactionPayload: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: any, updatedAt?: any } = {
       title: newTransactionTitle,
       amount: amount,
-      date: newTransactionDate, // This should be the selected date from the form
+      date: newTransactionDate, 
       category: newTransactionCategory,
       description: newTransactionDescription,
       type: selectedCategoryDetails.type,
@@ -858,7 +870,7 @@ export default function DashboardPage() {
       if (editingTransaction && editingTransaction.id) {
         const transactionDocRef = doc(transactionsCollectionRef, editingTransaction.id);
         transactionPayload.updatedAt = serverTimestamp();
-        delete (transactionPayload as any).createdAt; // Ensure createdAt is not resent on update
+        delete (transactionPayload as any).createdAt; 
         await updateDoc(transactionDocRef, transactionPayload as any);
         toast({ title: "Transaktion Uppdaterad", description: `Transaktionen "${newTransactionTitle}" har uppdaterats.` });
       } else {
@@ -879,7 +891,9 @@ export default function DashboardPage() {
       setIsSavingTransaction(false);
     }
   };
+  */
 
+  /*
   const handleDeleteTransaction = async (transactionToDelete: Transaction) => {
     if (!currentUser?.uid || !activeBoardId || !canEditActiveBoard) {
         toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att radera transaktioner på denna tavla.", variant: "destructive" });
@@ -919,10 +933,12 @@ export default function DashboardPage() {
       toast({ title: "Fel vid radering av transaktion", description, variant: "destructive", duration: 10000 });
     }
   };
+  */
 
+  /*
   const handleSetMainBoard = async (boardId: string) => {
     if (!currentUser?.uid) return;
-    // setIsSettingMainBoard(true); // Keep commented out
+    setIsSettingMainBoard(true);
     try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         let currentOrder = [...(userBoardOrderFromContext || boards.map(b => b.id))];
@@ -940,12 +956,12 @@ export default function DashboardPage() {
         console.error("Error setting main board:", error);
         toast({ title: "Fel", description: "Kunde inte ange huvudtavla.", variant: "destructive" });
     } finally {
-        // setIsSettingMainBoard(false); // Keep commented out
+        setIsSettingMainBoard(false);
     }
   };
-*/
+  */
 
-/*
+  /*
   const handleMoveBoard = async (boardId: string, direction: 'up' | 'down') => {
     if (!currentUser?.uid || !userBoardOrderFromContext || isUpdatingBoardOrder) return;
 
@@ -985,7 +1001,7 @@ export default function DashboardPage() {
   const calculateTotalByType = useCallback((type: 'income' | 'expense') => {
     if (!transactions) return 0;
     return transactions.filter(t => t.type === type).reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions]); // transactions is now month-filtered
+  }, [transactions]);
 
   const totalIncomeForMonth = useMemo(() => calculateTotalByType('income'), [calculateTotalByType]);
   const totalExpensesForMonth = useMemo(() => calculateTotalByType('expense'), [calculateTotalByType]);
@@ -1006,10 +1022,8 @@ export default function DashboardPage() {
       return <div className="flex justify-center items-center h-full"><Loader2 className="h-12 w-12 animate-spin text-primary" /> LADDAR TAVLOR...</div>;
   }
 
-
   return (
     <div className="flex flex-col h-full gap-6">
-       {/* Board Selection and Actions */}
        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2 overflow-x-auto pb-2">
           {boards.map((board, index) => (
@@ -1027,7 +1041,7 @@ export default function DashboardPage() {
               {board.id === mainBoardId && <Home className="ml-2 h-3 w-3 text-primary/80" />}
             </Button>
           ))}
-          {/* Keep Add Board Dialog Trigger commented out for now
+          {/*
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" size="icon" disabled={isLoadingBoards}><PlusCircle className="h-5 w-5" /></Button>
@@ -1053,7 +1067,7 @@ export default function DashboardPage() {
             </PopoverTrigger>
             <PopoverContent className="w-56">
               <div className="space-y-1">
-                {/* Keep board actions commented out for now
+                {/*
                 <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => {
                   const newName = prompt("Ange nytt namn för tavlan:", activeBoard.name);
                   if (newName) handleRenameBoard(activeBoard.id, newName);
@@ -1080,7 +1094,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* --- START: Month Navigation UI --- */}
       {activeBoardId && (
         <div className="flex items-center justify-center sm:justify-start gap-4 my-2">
           <Button variant="outline" size="icon" onClick={handlePreviousMonth} disabled={isLoadingPageData}>
@@ -1094,7 +1107,6 @@ export default function DashboardPage() {
           </Button>
         </div>
       )}
-      {/* --- END: Month Navigation UI --- */}
 
 
       {isLoadingPageData && activeBoardId && (
@@ -1103,7 +1115,6 @@ export default function DashboardPage() {
 
       {!isLoadingPageData && activeBoardId && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 overflow-auto">
-          {/* Income and Expense Summary */}
           <Card className="md:col-span-1">
             <CardHeader>
               <CardTitle>Översikt för {formattedSelectedMonth}</CardTitle>
@@ -1126,19 +1137,16 @@ export default function DashboardPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full" onClick={handleOpenNewTransactionDialog} disabled={!canEditActiveBoard}>
+              {/* <Button className="w-full" onClick={handleOpenNewTransactionDialog} disabled={!canEditActiveBoard}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Lägg till Ny Transaktion
-              </Button>
+              </Button> */}
             </CardFooter>
           </Card>
 
-          {/* Transactions List */}
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Transaktioner för {formattedSelectedMonth}</CardTitle>
               <div className="flex justify-end">
-                 {/* <Switch id="show-all-transactions" onCheckedChange={setShowAllTransactions} checked={showAllTransactions} />
-                 <Label htmlFor="show-all-transactions" className="ml-2 text-sm">Visa alla</Label> */}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1160,7 +1168,7 @@ export default function DashboardPage() {
                             <p className="font-semibold text-accent">+ {t.amount.toLocaleString('sv-SE')} kr</p>
                             {canEditActiveBoard && (
                               <div className="flex gap-1 justify-end mt-1">
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(t)}><Edit3 className="h-3 w-3" /></Button>
+                                {/* <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(t)}><Edit3 className="h-3 w-3" /></Button> */}
                                 {/* <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteTransaction(t)}><Trash2 className="h-3 w-3" /></Button> */}
                               </div>
                             )}
@@ -1182,7 +1190,7 @@ export default function DashboardPage() {
                             <p className="font-semibold text-destructive">- {t.amount.toLocaleString('sv-SE')} kr</p>
                              {canEditActiveBoard && (
                               <div className="flex gap-1 justify-end mt-1">
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(t)}><Edit3 className="h-3 w-3" /></Button>
+                                {/* <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenEditTransactionDialog(t)}><Edit3 className="h-3 w-3" /></Button> */}
                                 {/* <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteTransaction(t)}><Trash2 className="h-3 w-3" /></Button> */}
                               </div>
                             )}
@@ -1196,21 +1204,20 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Category Overview */}
           <Card className="md:col-span-3">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Kategoriöversikt för {formattedSelectedMonth}</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => handleOpenCategoryDialog()} disabled={!canEditActiveBoard}>
+              {/* <Button variant="outline" size="sm" onClick={() => handleOpenCategoryDialog()} disabled={!canEditActiveBoard}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Hantera Kategorier
-              </Button>
+              </Button> */}
             </CardHeader>
             <CardContent>
               {Object.entries(categoryTotals).filter(([,data]) => data.type === 'expense' && data.total > 0).length > 0 ? (
                 <ScrollArea className="h-[200px] md:h-auto">
                   <ul className="space-y-2">
                     {Object.entries(categoryTotals)
-                      .filter(([, data]) => data.type === 'expense' && data.total > 0) // Only expenses with totals
-                      .sort(([, a], [, b]) => b.total - a.total) // Sort by total descending
+                      .filter(([, data]) => data.type === 'expense' && data.total > 0) 
+                      .sort(([, a], [, b]) => b.total - a.total) 
                       .map(([catId, data]) => {
                         const category = categories.find(c => c.id === catId);
                         return (
@@ -1238,7 +1245,7 @@ export default function DashboardPage() {
             <Shapes className="h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold">Välj eller Skapa en Tavla</h2>
             <p className="text-muted-foreground">För att börja, välj en befintlig budgettavla ovan eller skapa en ny.</p>
-            {/* Keep Add Board Button commented out for now
+            {/*
             <Dialog>
                 <DialogTrigger asChild>
                     <Button className="mt-4"><PlusCircle className="mr-2 h-4 w-4" /> Skapa Ny Tavla</Button>
@@ -1256,15 +1263,14 @@ export default function DashboardPage() {
         </div>
       )}
 
-
-      {/* Transaction Dialog */}
+      {/*
       <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingTransaction ? 'Redigera Transaktion' : 'Lägg till Ny Transaktion'}</DialogTitle>
             <DialogDescription>Fyll i detaljerna för din {editingTransaction ? 'transaktion' : (categories.find(c=>c.id === newTransactionCategory)?.type === 'income' ? 'inkomst' : 'utgift')}.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); /* handleSaveTransaction(); */ }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveTransaction(); }} className="space-y-4">
             <div>
               <Label htmlFor="transactionTitle">Titel</Label>
               <Input id="transactionTitle" value={newTransactionTitle} onChange={e => setNewTransactionTitle(e.target.value)} />
@@ -1301,8 +1307,9 @@ export default function DashboardPage() {
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* Category Dialog */}
+      */}
+      
+      {/*
       <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
         setIsCategoryDialogOpen(open);
         if (!open) resetCategoryForm();
@@ -1311,7 +1318,7 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>{editingCategory ? 'Redigera Kategori' : 'Skapa Ny Kategori'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); /* handleSaveCategory(); */ }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveCategory(); }} className="space-y-4">
              <div>
               <Label htmlFor="categoryName">Namn</Label>
               <Input id="categoryName" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} />
@@ -1344,7 +1351,7 @@ export default function DashboardPage() {
                 </Select>
             </div>
             {editingCategory && (
-              <Button variant="destructive" type="button" onClick={() => { /* handleDeleteCategory(editingCategory.id, editingCategory.name); */ setIsCategoryDialogOpen(false); }} className="w-full justify-start" disabled={!canEditActiveBoard}>
+              <Button variant="destructive" type="button" onClick={() => { handleDeleteCategory(editingCategory.id, editingCategory.name); setIsCategoryDialogOpen(false); }} className="w-full justify-start" disabled={!canEditActiveBoard}>
                 <Trash2 className="mr-2 h-4 w-4" /> Radera Kategori
               </Button>
             )}
@@ -1355,8 +1362,9 @@ export default function DashboardPage() {
           </form>
         </DialogContent>
       </Dialog>
-
-        {/* Member Management Dialog - Keep commented out for now
+      */}
+      
+      {/*
        <Dialog open={isMemberManagementDialogOpen} onOpenChange={(open) => {
           if (!open) { setBoardToManageMembersFor(null); setListedMembers([]); setInviteUserUidInput(''); }
           setIsMemberManagementDialogOpen(open);
@@ -1420,5 +1428,5 @@ export default function DashboardPage() {
     </div>
   );
 }
-        
+
     
