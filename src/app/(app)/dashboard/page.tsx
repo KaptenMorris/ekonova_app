@@ -10,8 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import {
-  PlusCircle, Edit3, Trash2, MoreHorizontal, Home, Car, ShoppingCart, Clapperboard, Tag, Briefcase, HandCoins, Shapes, Zap, Wifi, Shield, Gift, PiggyBank, CreditCard, DollarSign, Receipt, Utensils, Plane, Palette, BookOpen, Heart, ShoppingBag, Shirt, Bike, Bus, Train, Fuel as FuelIcon, Camera, Music, Film, Gamepad2, Dog, Cat, PawPrint, GraduationCap, Landmark, Wrench, Phone, Computer, Loader2, Activity, Anchor, Award, Banknote, Bitcoin, Bone, Bookmark, Brain, Calculator, CalendarDays, Candy, Castle, CheckCheck, ChevronDown, ChevronUp, Church, CircleDollarSign, ClipboardList, Clock, Cloud, Code, Coffee, Coins, Compass, Contact, CookingPot, Crop, Crown, CupSoda, DoorOpen, Download, Drama, Dribbble, Droplet, Drumstick, Dumbbell, Ear, Egg, FileText, Fish, Flag, Flame, Flashlight, FlaskConical, Flower, Footprints, Gauge, Gem, Globe, Grape, Grid, Hammer, Headphones, HelpCircle, IceCream, Image, IndianRupee, Infinity, Key, Laptop, Laugh, Layers, Leaf, Library, LifeBuoy, Lightbulb, Link, List, Lock, LogIn, LogOut, Mail, Map as MapIcon, MapPin, Martini, Medal, Megaphone, Menu, Mic, Minus, Monitor, Moon, MousePointer, Move, Navigation, Newspaper, Nut, Option, Package, PaintBucket, Paperclip, ParkingCircle, PenTool, Pencil, Percent, PersonStanding, PictureInPicture, Pin, Pizza, Play, Plug, Pocket, Podcast, Power, Printer, Puzzle, Quote, Recycle, RefreshCcw, Reply, Rocket, RotateCcw, Rss, Ruler, Save, Scale, ScanLine, School, Scissors, ScreenShare, Search, Send, Settings, Share2, Siren, Slice, Smartphone, Smile, Speaker, Star, Store, Sun, Sunrise, Sunset, Table, Tablet, Target, Tent, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, Trash, TrendingUp, Trophy, Truck, Tv, Umbrella, Upload, User, Verified, Video, Volume2, Wallet, Watch, Waves, Wind, Wine, Youtube, ZoomIn, UserPlus, ArrowUp, ArrowDown, Copy, ChevronLeft, ChevronRight,
-} from 'lucide-react';
+  PlusCircle, Edit3, Trash2, MoreHorizontal, Home, Car, ShoppingCart, Clapperboard, Tag, Briefcase, HandCoins, Shapes, Zap, Wifi, Shield, Gift, PiggyBank, CreditCard, DollarSign, Receipt, Utensils, Plane, Palette, BookOpen, Heart, ShoppingBag, Shirt, Bike, Bus, Train, Fuel as FuelIcon, Camera, Music, Film, Gamepad2, Dog, Cat, PawPrint, GraduationCap, Landmark, Wrench, Phone, Computer, Loader2, Activity, Anchor, Award, Banknote, Bitcoin, Bone, Bookmark, Brain, Calculator, CalendarDays, Candy, Castle, CheckCheck, ChevronDown, ChevronUp, Church, CircleDollarSign, ClipboardList, Clock, Cloud, Code, Coffee, Coins, Compass, Contact, CookingPot, Crop, Crown, CupSoda, DoorOpen, Download, Drama, Dribbble, Droplet, Drumstick, Dumbbell, Ear, Egg, FileText, Fish, Flag, Flame, Flashlight, FlaskConical, Flower, Footprints, Gauge, Gem, Globe, Grape, Grid, Hammer, Headphones, HelpCircle, IceCream, Image, IndianRupee, Infinity, Key, Laptop, Laugh, Layers, Leaf, Library, LifeBuoy, Lightbulb, Link, List, Lock, LogIn, LogOut, Mail, Map as MapIcon, MapPin, Martini, Medal, Megaphone, Menu, Mic, Minus, Monitor, Moon, MousePointer, Move, Navigation, Newspaper, Nut, Option, Package, PaintBucket, Paperclip, ParkingCircle, PenTool, Pencil, Percent, PersonStanding, PictureInPicture, Pin, Pizza, Play, Plug, Pocket, Podcast, Power, Printer, Puzzle, Quote, Recycle, RefreshCcw, Reply, Rocket, RotateCcw, Rss, Ruler, Save, Scale, ScanLine, School, Scissors, ScreenShare, Search, Send, Settings, Share2, Siren, Slice, Smartphone, Smile, Speaker, Star, Store, Sun, Sunrise, Sunset, Table, Tablet, Target, Tent, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, Trash, TrendingUp, Trophy, Truck, Tv, Umbrella, Upload, User, Verified, Video, Volume2, Wallet, Watch, Waves, Wind, Wine, Youtube, ZoomIn, UserPlus, ArrowUp, ArrowDown, Copy } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,7 +39,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns'; // Removed month navigation specific imports
 import { sv } from 'date-fns/locale';
 
 
@@ -57,8 +56,8 @@ interface Transaction {
   id: string;
   title: string;
   amount: number;
-  date: string; 
-  category: string; 
+  date: string;
+  category: string;
   description?: string;
   type: 'income' | 'expense';
   linkedBillId?: string | null;
@@ -133,10 +132,10 @@ export default function DashboardPage() {
   const [boards, setBoards] = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [activeBoardName, setActiveBoardName] = useState<string>("");
-  
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedMonthDate, setSelectedMonthDate] = useState<Date>(startOfMonth(new Date()));
+  // Removed: selectedMonthDate state and related handlers
 
   const [isLoadingBoards, setIsLoadingBoards] = useState(true);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
@@ -187,13 +186,7 @@ export default function DashboardPage() {
   const currentUserRoleOnActiveBoard = useMemo(() => getUserRole(activeBoard), [getUserRole, activeBoard]);
   const canEditActiveBoard = useMemo(() => currentUserRoleOnActiveBoard === 'owner' || currentUserRoleOnActiveBoard === 'editor', [currentUserRoleOnActiveBoard]);
 
-  // Month Navigation
-  const handlePreviousMonth = () => setSelectedMonthDate(prevDate => subMonths(prevDate, 1));
-  const handleNextMonth = () => setSelectedMonthDate(prevDate => addMonths(prevDate, 1));
-  const isCurrentMonthOrFuture = useMemo(() => {
-    const currentMonthStart = startOfMonth(new Date());
-    return isSameMonth(selectedMonthDate, currentMonthStart) || selectedMonthDate > currentMonthStart;
-  }, [selectedMonthDate]);
+  // Removed: Month Navigation handlers and isCurrentMonthOrFuture
 
 
   useEffect(() => {
@@ -225,9 +218,9 @@ export default function DashboardPage() {
           fetchedBoardsMap.delete(boardId);
         }
       });
-      
+
       unorderedBoards.push(...Array.from(fetchedBoardsMap.values()));
-      unorderedBoards.sort((a, b) => a.name.localeCompare(b.name)); 
+      unorderedBoards.sort((a, b) => a.name.localeCompare(b.name));
 
 
       const finalSortedBoards = [...orderedBoards, ...unorderedBoards];
@@ -256,7 +249,7 @@ export default function DashboardPage() {
       setIsLoadingBoards(false);
     }, (error: any) => {
       console.error(`[DASHBOARD_EFFECT] Error fetching boards for UID: ${currentUser?.uid}. Full error:`, error);
-      
+
       let description = "Kunde inte hämta dina budgettavlor.";
       if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED' || (error.message && error.message.toLowerCase().includes("missing or insufficient permissions"))) {
         description = "**Åtkomst Nekad vid hämtning av tavlor!** Detta kan bero på felaktiga Firestore-säkerhetsregler eller att webbläsartillägg (t.ex. reklamblockerare) blockerar anrop till Firebase. Kontrollera konsolen för mer information och säkerställ att dina Firestore-regler tillåter läsning av tavlor där du är medlem. Detaljer: " + error.message;
@@ -277,7 +270,7 @@ export default function DashboardPage() {
       setCategories([]);
     });
     return () => unsubscribe();
-  }, [currentUser?.uid, toast, mainBoardId, userBoardOrderFromContext]);
+  }, [currentUser?.uid, toast, mainBoardId, userBoardOrderFromContext, activeBoardId]); // Added activeBoardId to ensure name consistency
 
 
   // useEffect for categories (depends on activeBoardId)
@@ -303,7 +296,7 @@ export default function DashboardPage() {
     return () => unsubCategories();
   }, [currentUser?.uid, activeBoardId, toast]);
 
-  // useEffect for transactions (depends on activeBoardId AND selectedMonthDate)
+  // useEffect for transactions (NOW FETCHES ALL TRANSACTIONS FOR THE BOARD, NOT MONTH-FILTERED)
   useEffect(() => {
     if (!currentUser?.uid || !activeBoardId) {
       setTransactions([]);
@@ -313,31 +306,28 @@ export default function DashboardPage() {
     setIsLoadingTransactions(true);
 
     const transactionsRef = collection(db, `boards/${activeBoardId}/transactions`);
-    const currentMonthStart = format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd');
-    const currentMonthEnd = format(endOfMonth(selectedMonthDate), 'yyyy-MM-dd');
-
+    // Removed month filtering from query
     const transactionsQuery = query(
       transactionsRef,
-      where("date", ">=", currentMonthStart),
-      where("date", "<=", currentMonthEnd),
       orderBy("date", "desc")
     );
 
     const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-      const monthTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
-      setTransactions(monthTransactions);
+      const allTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+      setTransactions(allTransactions);
       setIsLoadingTransactions(false);
     }, (error) => {
-      console.error("Error fetching transactions for month:", error);
-      toast({ title: "Fel", description: "Kunde inte hämta transaktioner för vald månad.", variant: "destructive" });
+      console.error("Error fetching transactions:", error); // Updated error message
+      toast({ title: "Fel", description: "Kunde inte hämta transaktioner för tavlan.", variant: "destructive" });
       setIsLoadingTransactions(false);
     });
 
     return () => unsubTransactions();
-  }, [currentUser?.uid, activeBoardId, selectedMonthDate, toast]);
+  }, [currentUser?.uid, activeBoardId, toast]); // Removed selectedMonthDate dependency
 
 
   const categoryTotals = useMemo(() => {
+    // Now calculates totals based on ALL transactions for the board
     if (!transactions || !categories) return {};
     const totals: Record<string, { total: number, type: 'income' | 'expense' }> = {};
     categories.forEach(cat => { totals[cat.id] = { total: 0, type: cat.type }; });
@@ -355,13 +345,13 @@ export default function DashboardPage() {
       toast({ title: "Fel", description: "Tavlans namn får inte vara tomt.", variant: "destructive" });
       return;
     }
-    
+
     const newBoardDocRef = doc(collection(db, 'boards'));
     const boardData: Omit<Board, 'id'> = {
       name: newBoardName,
       ownerUid: currentUser.uid,
       members: [currentUser.uid],
-      memberRoles: {}, 
+      memberRoles: {},
       createdAt: serverTimestamp()
     };
 
@@ -383,7 +373,7 @@ export default function DashboardPage() {
 
       toast({ title: "Tavla Skapad!", description: `Tavlan "${newBoardName}" har skapats med standardkategorier.` });
       setNewBoardName('');
-      setActiveBoardId(newBoardDocRef.id); 
+      setActiveBoardId(newBoardDocRef.id);
 
       const closeButton = document.querySelector('button[data-testid="dialog-close-add-board"]') as HTMLElement;
       closeButton?.click();
@@ -427,7 +417,7 @@ export default function DashboardPage() {
       });
       await refreshUserData();
       toast({ title: "Tavla Raderad", description: `Tavlan "${boardToDelete.name}" har raderats. Observera: Data inuti tavlan (transaktioner, kategorier, räkningar) har INTE raderats automatiskt och blir kvar i databasen. Detta kräver en Firebase Function.`, duration: 10000 });
-      if (activeBoardId === boardId) setActiveBoardId(null); 
+      if (activeBoardId === boardId) setActiveBoardId(null);
     } catch (error: any) {
       console.error("[BOARD_DELETE] Error deleting board:", error);
       let description = "Kunde inte radera tavlan. Försök igen.";
@@ -481,10 +471,10 @@ export default function DashboardPage() {
         setIsLoadingMembers(false);
         return;
     }
-    
+
     const memberDetailsPromises = memberUidsToFetch.map(async (uid) => {
-        let displayName = `Användare (UID: ${uid.substring(0, 6)}...)`; 
-        const role = currentBoard.memberRoles?.[uid] || 'viewer'; 
+        let displayName = `Användare (UID: ${uid.substring(0, 6)}...)`;
+        const role = currentBoard.memberRoles?.[uid] || 'viewer';
         try {
             const userDocRef = doc(db, 'users', uid);
             const userDocSnap = await getDoc(userDocRef);
@@ -503,7 +493,7 @@ export default function DashboardPage() {
         setListedMembers(resolvedMemberDetails);
     } catch (error) {
         console.error("[MEMBER_MGMT] Error resolving member details:", error);
-        setListedMembers([]); 
+        setListedMembers([]);
         toast({ title: "Fel", description: "Kunde inte hämta all medlemsinformation.", variant: "destructive" });
     } finally {
         setIsLoadingMembers(false);
@@ -550,10 +540,10 @@ export default function DashboardPage() {
       const updatedBoardSnap = await getDoc(boardDocRef);
       if (updatedBoardSnap.exists()) {
         const updatedBoardData = updatedBoardSnap.data() as Board;
-        setBoardToManageMembersFor(updatedBoardData); 
-        await fetchBoardMemberDetails(updatedBoardData.id); 
+        setBoardToManageMembersFor(updatedBoardData);
+        await fetchBoardMemberDetails(updatedBoardData.id);
       }
-      setInviteUserUidInput(''); 
+      setInviteUserUidInput('');
     } catch (error: any) {
       console.error("[MEMBER_MGMT] Error inviting/updating user role via UID:", error);
       let description = "Kunde inte bjuda in användaren eller uppdatera rollen.";
@@ -574,11 +564,11 @@ export default function DashboardPage() {
       const updates: any = {};
       updates[`memberRoles.${memberUid}`] = newRole;
       await updateDoc(boardDocRef, updates);
-      
+
       const memberDisplayName = listedMembers.find(m => m.uid === memberUid)?.displayName || `användare ${memberUid.substring(0,6)}...`;
       const roleText = newRole === 'editor' ? 'Redaktör' : 'Granskare';
       toast({ title: "Roll Uppdaterad", description: `Rollen för ${memberDisplayName} har ändrats till ${roleText}.`});
-      
+
       setListedMembers(prevMembers => prevMembers.map(m => m.uid === memberUid ? {...m, role: newRole} : m));
 
       if (boardToManageMembersFor && boardToManageMembersFor.id === boardId) {
@@ -608,13 +598,13 @@ export default function DashboardPage() {
         toast({ title: "Fel", description: "Tavlan kunde inte hittas i den lokala listan.", variant: "destructive"});
         return;
     }
-    
-    const userRoleOnThisBoard = getUserRole(currentBoardForAction);    
+
+    const userRoleOnThisBoard = getUserRole(currentBoardForAction);
     if (userRoleOnThisBoard !== 'owner' && userRoleOnThisBoard !== 'editor') {
         toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att ta bort medlemmar från denna tavla.", variant: "destructive" });
         return;
     }
-    
+
     const confirmMessage = `Är du säker på att du vill ta bort ${memberDisplayName} från tavlan "${currentBoardForAction?.name}"?`;
     if (!confirm(confirmMessage)) return;
 
@@ -623,16 +613,16 @@ export default function DashboardPage() {
       const boardDocRef = doc(db, 'boards', boardId);
       const updates: any = {
         members: arrayRemove(memberUid),
-        [`memberRoles.${memberUid}`]: FieldValue.delete() 
+        [`memberRoles.${memberUid}`]: FieldValue.delete()
       };
       await updateDoc(boardDocRef, updates);
       toast({ title: "Medlem Borttagen", description: `${memberDisplayName} har tagits bort från tavlan.`});
       setListedMembers(prevMembers => prevMembers.filter(m => m.uid !== memberUid));
       if (boardToManageMembersFor && boardToManageMembersFor.id === boardId) {
-           const updatedBoardSnap = await getDoc(boardDocRef); 
+           const updatedBoardSnap = await getDoc(boardDocRef);
             if (updatedBoardSnap.exists()) {
                 const updatedBoardData = updatedBoardSnap.data() as Board;
-                setBoardToManageMembersFor(updatedBoardData); 
+                setBoardToManageMembersFor(updatedBoardData);
                 await fetchBoardMemberDetails(updatedBoardData.id);
             } else {
                 setIsMemberManagementDialogOpen(false);
@@ -659,7 +649,7 @@ export default function DashboardPage() {
     setNewCategoryIconName(iconOptions.find(opt => opt.value === 'Shapes')?.value);
     setEditingCategory(null);
   };
-  
+
   const handleOpenCategoryDialog = (category?: Category) => {
     if (!canEditActiveBoard) {
       toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att hantera kategorier på denna tavla.", variant: "destructive" });
@@ -685,7 +675,7 @@ export default function DashboardPage() {
       toast({ title: "Fel", description: "Kategorinamn, typ (för ny) och ikon måste anges.", variant: "destructive" });
       return;
     }
-    
+
     const categoryPayload: Partial<Omit<Category, 'id'>> & { type?: 'income' | 'expense' } = {
       name: newCategoryName.trim(),
       iconName: newCategoryIconName,
@@ -773,7 +763,7 @@ export default function DashboardPage() {
   const resetTransactionForm = () => {
     setNewTransactionTitle('');
     setNewTransactionAmount('');
-    setNewTransactionDate(format(selectedMonthDate, 'yyyy-MM-dd')); // Default to selected month
+    setNewTransactionDate(format(new Date(), 'yyyy-MM-dd')); // Default to current date
     setNewTransactionCategory(undefined);
     setNewTransactionDescription('');
     setEditingTransaction(null);
@@ -839,7 +829,7 @@ export default function DashboardPage() {
       if (editingTransaction && editingTransaction.id) {
         const transactionDocRef = doc(transactionsCollectionRef, editingTransaction.id);
         transactionPayload.updatedAt = serverTimestamp();
-        delete (transactionPayload as any).createdAt; 
+        delete (transactionPayload as any).createdAt;
         await updateDoc(transactionDocRef, transactionPayload as any);
         toast({ title: "Transaktion Uppdaterad", description: `Transaktionen "${newTransactionTitle}" har uppdaterats.` });
       } else {
@@ -866,8 +856,8 @@ export default function DashboardPage() {
         toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att radera transaktioner på denna tavla.", variant: "destructive" });
         return;
     }
-    
-    const confirmMessage = transactionToDelete.linkedBillId 
+
+    const confirmMessage = transactionToDelete.linkedBillId
       ? `Är du säker på att du vill radera transaktionen "${transactionToDelete.title}"?\nDetta kommer också att markera den kopplade räkningen som obetald.`
       : `Är du säker på att du vill radera transaktionen "${transactionToDelete.title}"?`;
 
@@ -915,7 +905,7 @@ export default function DashboardPage() {
             boardOrder: newBoardOrder
         });
 
-        await refreshUserData(); 
+        await refreshUserData();
         toast({ title: "Huvudtavla Sparad", description: "Vald tavla har angetts som din huvudtavla och flyttats först." });
     } catch (error) {
         console.error("Error setting main board:", error);
@@ -925,11 +915,12 @@ export default function DashboardPage() {
     }
   };
 
+  /*
   const handleMoveBoard = async (boardId: string, direction: 'up' | 'down') => {
     if (!currentUser?.uid || !userBoardOrderFromContext || isUpdatingBoardOrder) return;
 
     setIsUpdatingBoardOrder(true);
-    let currentOrder = [...(userBoardOrderFromContext || [])]; 
+    let currentOrder = [...(userBoardOrderFromContext || [])];
     const boardIndex = currentOrder.indexOf(boardId);
 
     if (boardIndex === -1) {
@@ -950,7 +941,7 @@ export default function DashboardPage() {
     try {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userDocRef, { boardOrder: currentOrder });
-        await refreshUserData(); 
+        await refreshUserData();
         toast({ title: "Ordning Uppdaterad", description: "Tavlornas ordning har sparats." });
     } catch (error: any) {
         console.error("Error updating board order:", error);
@@ -958,10 +949,12 @@ export default function DashboardPage() {
     } finally {
         setIsUpdatingBoardOrder(false);
     }
-};
+  };
+  */
 
 
   const getTotal = useCallback((type: 'income' | 'expense') => {
+    // Now calculates totals based on ALL transactions for the board
     if (!transactions) return 0;
     return transactions.filter(t => t.type === type).reduce((sum, t) => sum + t.amount, 0);
   }, [transactions]);
@@ -1007,7 +1000,7 @@ export default function DashboardPage() {
                       variant="ghost"
                       size="icon"
                       className="ml-2 h-6 w-6 opacity-50 group-hover:opacity-100 shrink-0"
-                      onClick={(e) => e.stopPropagation()} 
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
@@ -1031,12 +1024,12 @@ export default function DashboardPage() {
                       </Dialog>
                     )}
                      <Dialog open={isMemberManagementDialogOpen && boardToManageMembersFor?.id === board.id} onOpenChange={(open) => {
-                            if (!open) { 
-                                setBoardToManageMembersFor(null); 
-                                setInviteUserUidInput(''); 
-                                setInviteUserRoleInput('viewer'); 
-                                setListedMembers([]); 
-                                setIsLoadingMembers(false); 
+                            if (!open) {
+                                setBoardToManageMembersFor(null);
+                                setInviteUserUidInput('');
+                                setInviteUserRoleInput('viewer');
+                                setListedMembers([]);
+                                setIsLoadingMembers(false);
                             }
                             setIsMemberManagementDialogOpen(open);
                         }}>
@@ -1087,7 +1080,7 @@ export default function DashboardPage() {
                                           size="icon"
                                           className="h-8 w-8 text-destructive hover:text-destructive"
                                           onClick={() => {
-                                            if (boardToManageMembersFor) { 
+                                            if (boardToManageMembersFor) {
                                                 handleRemoveListedMember(boardToManageMembersFor.id, member.uid, member.displayName);
                                             }
                                           }}
@@ -1156,8 +1149,7 @@ export default function DashboardPage() {
                         {board.id === mainBoardId ? 'Detta är Huvudtavla' : 'Ange som Huvudtavla'}
                     </Button>
 
-
-                    { boards.length > 1 && (
+                    {/* { boards.length > 1 && (
                         <>
                            <Button
                                 variant="ghost"
@@ -1176,7 +1168,7 @@ export default function DashboardPage() {
                                 <ArrowDown className="mr-2 h-4 w-4" /> Flytta Nedåt
                             </Button>
                         </>
-                    )}
+                    )} */}
 
                     {currentUser?.uid === board.ownerUid && (
                         <Button
@@ -1213,25 +1205,12 @@ export default function DashboardPage() {
           </DialogContent>
         </Dialog>
       </div>
-      
-      {activeBoardId && (
-        <div className="flex items-center justify-center sm:justify-start gap-2 my-2">
-          <Button variant="outline" size="icon" onClick={handlePreviousMonth} disabled={isLoadingTransactions || isLoadingCategories}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-lg font-medium w-40 text-center">
-            {format(selectedMonthDate, 'MMMM yyyy', { locale: sv })}
-          </span>
-          <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoadingTransactions || isLoadingCategories || isCurrentMonthOrFuture}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
 
+      {/* Removed Month Navigation UI */}
 
       <div className="flex-1 overflow-y-auto space-y-6 pr-1 pb-2">
         {(isLoadingTransactions || isLoadingCategories) && activeBoardId && (
-           <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /> Laddar data för {activeBoardName || 'tavlan'} ({format(selectedMonthDate, 'MMMM yyyy', { locale: sv })})...</div>
+           <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /> Laddar data för {activeBoardName || 'tavlan'}...</div>
         )}
         {!isLoadingTransactions && !isLoadingCategories && activeBoard && (
           <>
@@ -1239,7 +1218,8 @@ export default function DashboardPage() {
               <Card className="flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-lg">Inkomster</CardTitle>
-                  <CardDescription>för {format(selectedMonthDate, 'MMMM yyyy', { locale: sv })}</CardDescription>
+                  {/* Removed month from description */}
+                  <CardDescription>för {activeBoardName || "valda tavlan"}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-4 overflow-y-auto p-4 max-h-[240px] md:max-h-[300px] lg:max-h-[calc(100vh-550px)] xl:max-h-[calc(100vh-500px)]">
                   {incomeTransactions.map(transaction => (
@@ -1262,15 +1242,17 @@ export default function DashboardPage() {
                       </div>
                     </Card>
                   ))}
-                  {incomeTransactions.length === 0 && <p className="text-sm text-muted-foreground">Inga inkomsttransaktioner för {format(selectedMonthDate, 'MMMM yyyy', { locale: sv })}.</p>}
+                  {incomeTransactions.length === 0 && <p className="text-sm text-muted-foreground">Inga inkomsttransaktioner.</p>}
                 </CardContent>
-                <CardFooter className="border-t p-4"><div className="flex justify-between w-full font-semibold"><span className="text-accent">Total Inkomst ({format(selectedMonthDate, 'MMM', { locale: sv })}):</span><span className="text-accent">+ {getTotal('income').toLocaleString('sv-SE')} kr</span></div></CardFooter>
+                {/* Removed month from footer */}
+                <CardFooter className="border-t p-4"><div className="flex justify-between w-full font-semibold"><span className="text-accent">Total Inkomst:</span><span className="text-accent">+ {getTotal('income').toLocaleString('sv-SE')} kr</span></div></CardFooter>
               </Card>
 
               <Card className="flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-lg">Utgifter</CardTitle>
-                  <CardDescription>för {format(selectedMonthDate, 'MMMM yyyy', { locale: sv })}</CardDescription>
+                  {/* Removed month from description */}
+                  <CardDescription>för {activeBoardName || "valda tavlan"}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-4 overflow-y-auto p-4 max-h-[240px] md:max-h-[300px] lg:max-h-[calc(100vh-550px)] xl:max-h-[calc(100vh-500px)]">
                   {expenseTransactions.map(transaction => (
@@ -1293,9 +1275,10 @@ export default function DashboardPage() {
                       </div>
                     </Card>
                   ))}
-                  {expenseTransactions.length === 0 && <p className="text-sm text-muted-foreground">Inga utgiftstransaktioner för {format(selectedMonthDate, 'MMMM yyyy', { locale: sv })}.</p>}
+                  {expenseTransactions.length === 0 && <p className="text-sm text-muted-foreground">Inga utgiftstransaktioner.</p>}
                 </CardContent>
-                <CardFooter className="border-t p-4"><div className="flex justify-between w-full font-semibold"><span className="text-destructive">Total Utgift ({format(selectedMonthDate, 'MMM', { locale: sv })}):</span><span className="text-destructive">- {getTotal('expense').toLocaleString('sv-SE')} kr</span></div></CardFooter>
+                {/* Removed month from footer */}
+                <CardFooter className="border-t p-4"><div className="flex justify-between w-full font-semibold"><span className="text-destructive">Total Utgift:</span><span className="text-destructive">- {getTotal('expense').toLocaleString('sv-SE')} kr</span></div></CardFooter>
               </Card>
             </div>
 
@@ -1303,7 +1286,8 @@ export default function DashboardPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">Kategoriöversikt</CardTitle>
-                  <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''} ({format(selectedMonthDate, 'MMMM yyyy', { locale: sv })}).</CardDescription>
+                  {/* Removed month from description */}
+                  <CardDescription>Summering av transaktioner per kategori för {activeBoardName || ''}.</CardDescription>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -1312,8 +1296,8 @@ export default function DashboardPage() {
                     onCheckedChange={setIsCategoryEditMode}
                     disabled={!activeBoardId || !canEditActiveBoard || isLoadingTransactions || isLoadingCategories}
                   />
-                  <Label 
-                    htmlFor="category-edit-mode" 
+                  <Label
+                    htmlFor="category-edit-mode"
                     className={cn(
                       "text-sm",
                       (!activeBoardId || !canEditActiveBoard || isLoadingTransactions || isLoadingCategories) && "opacity-50 cursor-not-allowed"
@@ -1325,7 +1309,8 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 max-h-[300px] md:max-h-[400px] lg:max-h-[calc(100vh-600px)] overflow-y-auto">
                 <div>
-                  <h3 className="text-md font-semibold mb-3 border-b pb-2 sticky top-0 bg-card z-10">Inkomstkategorier ({format(selectedMonthDate, 'MMM', { locale: sv })})</h3>
+                  {/* Removed month from header */}
+                  <h3 className="text-md font-semibold mb-3 border-b pb-2 sticky top-0 bg-card z-10">Inkomstkategorier</h3>
                   {categories.filter(cat => cat.type === 'income').length > 0 ? (
                     <ul className="space-y-3">
                       {categories.filter(cat => cat.type === 'income').map(cat => (
@@ -1346,7 +1331,8 @@ export default function DashboardPage() {
                   ) : (<p className="text-sm text-muted-foreground">Inga inkomstkategorier än.</p>)}
                 </div>
                 <div>
-                  <h3 className="text-md font-semibold mb-3 border-b pb-2 sticky top-0 bg-card z-10">Utgiftskategorier ({format(selectedMonthDate, 'MMM', { locale: sv })})</h3>
+                  {/* Removed month from header */}
+                  <h3 className="text-md font-semibold mb-3 border-b pb-2 sticky top-0 bg-card z-10">Utgiftskategorier</h3>
                   {categories.filter(cat => cat.type === 'expense').length > 0 ? (
                     <ul className="space-y-3">
                       {categories.filter(cat => cat.type === 'expense').map(cat => (
@@ -1372,7 +1358,7 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-1 items-center justify-center">
             <p className="text-xl text-muted-foreground text-center">
-              {boards.length === 0 && !isLoadingBoards ? 'Skapa din första budgettavla!' : 
+              {boards.length === 0 && !isLoadingBoards ? 'Skapa din första budgettavla!' :
                !activeBoardId && boards.length > 0 ? 'Välj en tavla för att se dess data.' :
                ''}
             </p>
@@ -1410,10 +1396,10 @@ export default function DashboardPage() {
               <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="catName" className="text-right">Namn</Label><Input id="catName" placeholder="T.ex. Lön, Matvaror" className="col-span-3" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} /></div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="catType" className="text-right">Typ</Label>
-                 <Select 
-                    value={newCategoryType} 
+                 <Select
+                    value={newCategoryType}
                     onValueChange={(value) => setNewCategoryType(value as 'income' | 'expense')}
-                    disabled={!!editingCategory} 
+                    disabled={!!editingCategory}
                   >
                   <SelectTrigger className="col-span-3"><SelectValue placeholder="Välj typ..." /></SelectTrigger>
                   <SelectContent><SelectItem value="income">Inkomst</SelectItem><SelectItem value="expense">Utgift</SelectItem></SelectContent>
@@ -1447,7 +1433,8 @@ export default function DashboardPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingTransaction ? 'Redigera Transaktion' : 'Lägg till Ny Transaktion'}</DialogTitle>
-            <DialogDescription>Fyll i detaljerna för din transaktion. Den kommer att läggas till för {format(parseISO(newTransactionDate), 'MMMM yyyy', { locale: sv })}.</DialogDescription>
+            {/* Removed month from description */}
+            <DialogDescription>Fyll i detaljerna för din transaktion.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
@@ -1460,6 +1447,7 @@ export default function DashboardPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="date" className="text-right">Datum</Label>
+              {/* Default date for new transactions is now current date */}
               <Input id="date" type="date" className="col-span-3" value={newTransactionDate} onChange={e => setNewTransactionDate(e.target.value)} />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -1491,4 +1479,5 @@ export default function DashboardPage() {
     </div>
   );
 }
-
+        
+    
