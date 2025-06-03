@@ -68,15 +68,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserData = useCallback(async (user: User | null) => {
     if (user) {
+      const userDocRef = doc(db, 'users', user.uid);
       try {
         setLoadingMessage("Hämtar användardata...");
-        const userDocRef = doc(db, 'users', user.uid);
-        console.log(`[AuthContext] Attempting to get user document: users/${user.uid}`);
+        console.log(`[AuthContext] Attempting to GET user document: users/${user.uid}`);
         const userDocSnap = await getDoc(userDocRef);
-        console.log(`[AuthContext] User document exists for users/${user.uid}: ${userDocSnap.exists()}`);
+        console.log(`[AuthContext] GET users/${user.uid} - Exists: ${userDocSnap.exists()}`);
 
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
+          console.log(`[AuthContext] User data for users/${user.uid}:`, userData);
           const expiresAtTimestamp = userData.subscriptionExpiresAt as Timestamp | undefined;
           setSubscription({
             status: userData.subscriptionStatus || 'inactive',
@@ -85,7 +86,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
 
-          const authUserToUpdate = auth.currentUser; 
+          const authUserToUpdate = auth.currentUser;
           if (authUserToUpdate) {
             let firestoreUpdates: any = {};
             let authProfileNeedsUpdate = false;
@@ -108,17 +109,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             } else if (authPhotoURL && authPhotoURL !== firestorePhotoURL) {
               firestoreUpdates.photoURL = authPhotoURL;
             }
-            
+
             if (Object.keys(firestoreUpdates).length > 0) {
-               firestoreUpdates.updatedAt = serverTimestamp();
-              console.log(`[AuthContext] Attempting to update user document users/${user.uid} with:`, firestoreUpdates);
+              firestoreUpdates.updatedAt = serverTimestamp();
+              console.log(`[AuthContext] Attempting to UPDATE user document users/${user.uid} with:`, firestoreUpdates);
               await updateDoc(userDocRef, firestoreUpdates);
-              console.log(`[AuthContext] User document users/${user.uid} updated successfully.`);
+              console.log(`[AuthContext] UPDATE users/${user.uid} successful.`);
             }
             if (authProfileNeedsUpdate && Object.keys(authProfileUpdatePayload).length > 0) {
-              console.log(`[AuthContext] Attempting to update Firebase Auth profile for UID ${user.uid} with:`, authProfileUpdatePayload);
+              console.log(`[AuthContext] Attempting to UPDATE Firebase Auth profile for UID ${user.uid} with:`, authProfileUpdatePayload);
               await updateProfile(authUserToUpdate, authProfileUpdatePayload);
-              console.log(`[AuthContext] Firebase Auth profile for UID ${user.uid} updated successfully.`);
+              console.log(`[AuthContext] UPDATE Firebase Auth profile for UID ${user.uid} successful.`);
             }
           }
         } else {
@@ -134,20 +135,21 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             subscriptionExpiresAt: null,
             mainBoardId: null,
             boardOrder: [],
+            isAdmin: false, // Default isAdmin to false
           };
-          console.log(`[AuthContext] Attempting to create user document users/${user.uid} with:`, newUserDocData);
+          console.log(`[AuthContext] Attempting to SET user document users/${user.uid} with:`, newUserDocData);
           await setDoc(userDocRef, newUserDocData);
-          console.log(`[AuthContext] User document users/${user.uid} created successfully.`);
+          console.log(`[AuthContext] SET users/${user.uid} successful.`);
           setSubscription({ status: 'inactive', expiresAt: null });
           setMainBoardId(null);
           setBoardOrder(null);
         }
       } catch (error: any) {
         console.error("[AuthContext] Error in fetchUserData (Firestore operation):", error);
+        const path = `users/${user.uid}`;
         if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-          const path = `users/${user.uid}`;
           console.error(`[AuthContext] Firestore permission denied for UID: ${user.uid}. Path: ${path}. Check Firestore Security Rules.`);
-          alert(`Kritiskt fel: Åtkomst nekad till Firestore för sökvägen "${path}".\n\nKontrollera dina Firebase-säkerhetsregler i Firebase Console.\n\nEn typisk regel för att tillåta en användare att komma åt sitt eget dokument är:\nmatch /users/{userId} {\n  allow read, write: if request.auth != null && request.auth.uid == userId;\n}\n\nAppen kan inte fungera korrekt utan denna åtkomst.`);
+          alert(`Kritiskt fel: Åtkomst nekad till Firestore för användardata (${path}).\n\nSe till att dina säkerhetsregler i Firebase Console tillåter läsning och skrivning för den autentiserade användaren till sitt eget dokument under /users/{userId}.\n\nExempelregel:\nmatch /users/{userId} {\n  allow read, write: if request.auth != null && request.auth.uid == userId;\n}\n\nAppen kan inte fungera korrekt.`);
         }
         setSubscription({ status: 'inactive', expiresAt: null });
         setMainBoardId(null);
@@ -162,7 +164,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
 
   useEffect(() => {
-    setHasMounted(true); 
+    setHasMounted(true);
     
     setLoadingMessage("Sätter upp autentiseringslyssnare...");
     console.log("AuthProvider: Setting up onAuthStateChanged listener with directly imported auth instance.");
@@ -193,7 +195,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
       unsubscribe();
     };
-  }, [fetchUserData]); 
+  }, [fetchUserData]);
 
 
   const signUp = async (email: string, password: string, name: string) => {
@@ -201,6 +203,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName: name });
+      // Firestore document creation is now handled by fetchUserData on new user login
     }
     setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;

@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 
 // Diagnostic comment for HMR stability test - v2024-08-16-E
 // Further diagnostic for Firestore permission issues.
+// Attempting to pinpoint source of persistent "Missing or insufficient permissions"
 export default function HomePage() {
   const { currentUser, loading } = useAuth();
 

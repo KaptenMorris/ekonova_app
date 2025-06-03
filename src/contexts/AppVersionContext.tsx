@@ -37,12 +37,6 @@ interface AppVersionInfoProviderProps {
   children: ReactNode;
 }
 
-// Firestore Security Rules Dependency:
-// This context requires specific Firestore security rules to function:
-// 1. Read access to `appVersionInfo/latest` (e.g., `match /appVersionInfo/latest { allow read: if true; }`)
-// 2. Read/Write access for authenticated users to their own document at `users/{uid}` for `lastSeenAppVersion`
-//    (e.g., `match /users/{userId} { allow read, write: if request.auth.uid == userId; }`)
-
 export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ children }) => {
   const { currentUser, loading: authLoading } = useAuth();
   const [latestVersionInfo, setLatestVersionInfo] = useState<AppVersion | null>(null);
@@ -52,13 +46,15 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
 
   const fetchLatestVersionAndUserStatus = useCallback(async (user: User) => {
     setIsLoadingVersionInfo(true);
+    const versionDocRef = doc(db, 'appVersionInfo', 'latest');
+    const userDocRef = doc(db, 'users', user.uid);
+    let currentLatestVersion: AppVersion | null = null;
+
     try {
       // Fetch latest version
-      const versionDocRef = doc(db, 'appVersionInfo', 'latest');
-      console.log(`[AppVersionContext] Attempting to get document: appVersionInfo/latest`);
+      console.log(`[AppVersionContext] Attempting to GET document: appVersionInfo/latest`);
       const versionDocSnap = await getDoc(versionDocRef);
-      console.log(`[AppVersionContext] Document appVersionInfo/latest exists: ${versionDocSnap.exists()}`);
-      let currentLatestVersion: AppVersion | null = null;
+      console.log(`[AppVersionContext] GET appVersionInfo/latest - Exists: ${versionDocSnap.exists()}`);
       if (versionDocSnap.exists()) {
         const data = versionDocSnap.data() as Omit<AppVersion, 'id'>;
         if (data.published) {
@@ -68,10 +64,9 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
       setLatestVersionInfo(currentLatestVersion);
 
       // Fetch user's last seen version
-      const userDocRef = doc(db, 'users', user.uid);
-      console.log(`[AppVersionContext] Attempting to get user document for lastSeenAppVersion: users/${user.uid}`);
+      console.log(`[AppVersionContext] Attempting to GET user document for lastSeenAppVersion: users/${user.uid}`);
       const userDocSnap = await getDoc(userDocRef);
-      console.log(`[AppVersionContext] User document users/${user.uid} exists (for lastSeenAppVersion): ${userDocSnap.exists()}`);
+      console.log(`[AppVersionContext] GET users/${user.uid} (for lastSeenAppVersion) - Exists: ${userDocSnap.exists()}`);
       let lastSeen: string | null = null;
       if (userDocSnap.exists()) {
         lastSeen = userDocSnap.data()?.lastSeenAppVersion || null;
@@ -87,8 +82,11 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
     } catch (error: any) {
       console.error("[AppVersionContext] Error in fetchLatestVersionAndUserStatus (Firestore operation):", error);
       if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-        console.error(`[AppVersionContext] Firestore permission denied. This could be for 'appVersionInfo/latest' OR 'users/${user.uid}'. Please ensure your Firestore Security Rules allow: 1. Read access to 'appVersionInfo/latest'. 2. Read/write access for the user to their own document at 'users/${user.uid}'.`);
-        // Potentially show a non-critical error to the user or degrade gracefully
+        // This error could be for 'appVersionInfo/latest' OR 'users/{user.uid}'
+        // The console log should help differentiate if we have access to it.
+        // The error object itself might contain the path.
+        const specificPath = error.customData?.path || `appVersionInfo/latest or users/${user.uid}`;
+        console.error(`[AppVersionContext] Firestore permission denied. Specific path (if available from error): ${specificPath}. Check Firestore Security Rules for BOTH paths: 1. Read access to 'appVersionInfo/latest'. 2. Read/write access for 'users/${user.uid}'.`);
       }
       setLatestVersionInfo(null);
       setUserLastSeenVersion(null);
@@ -119,11 +117,11 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
   const closeWhatsNewDialog = useCallback(async () => {
     setShowWhatsNewDialog(false);
     if (currentUser && latestVersionInfo && latestVersionInfo.version !== userLastSeenVersion) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
       try {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        console.log(`[AppVersionContext] Attempting to set lastSeenAppVersion for users/${currentUser.uid} to: ${latestVersionInfo.version}`);
+        console.log(`[AppVersionContext] Attempting to SET lastSeenAppVersion for users/${currentUser.uid} to: ${latestVersionInfo.version}`);
         await setDoc(userDocRef, { lastSeenAppVersion: latestVersionInfo.version }, { merge: true });
-        console.log(`[AppVersionContext] Successfully set lastSeenAppVersion for users/${currentUser.uid}.`);
+        console.log(`[AppVersionContext] SET lastSeenAppVersion for users/${currentUser.uid} successful.`);
         setUserLastSeenVersion(latestVersionInfo.version);
       } catch (error: any) {
         console.error("[AppVersionContext] Error updating user's lastSeenAppVersion (Firestore operation):", error);
