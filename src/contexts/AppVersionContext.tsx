@@ -49,7 +49,9 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
     try {
       // Fetch latest version
       const versionDocRef = doc(db, 'appVersionInfo', 'latest');
+      console.log(`[AppVersionContext] Attempting to get document: appVersionInfo/latest`);
       const versionDocSnap = await getDoc(versionDocRef);
+      console.log(`[AppVersionContext] Document appVersionInfo/latest exists: ${versionDocSnap.exists()}`);
       let currentLatestVersion: AppVersion | null = null;
       if (versionDocSnap.exists()) {
         const data = versionDocSnap.data() as Omit<AppVersion, 'id'>;
@@ -61,22 +63,27 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
 
       // Fetch user's last seen version
       const userDocRef = doc(db, 'users', user.uid);
+      console.log(`[AppVersionContext] Attempting to get user document for lastSeenAppVersion: users/${user.uid}`);
       const userDocSnap = await getDoc(userDocRef);
+      console.log(`[AppVersionContext] User document users/${user.uid} exists (for lastSeenAppVersion): ${userDocSnap.exists()}`);
       let lastSeen: string | null = null;
       if (userDocSnap.exists()) {
         lastSeen = userDocSnap.data()?.lastSeenAppVersion || null;
       }
       setUserLastSeenVersion(lastSeen);
 
-      // Determine if dialog should be shown
       if (currentLatestVersion && currentLatestVersion.version !== lastSeen) {
         setShowWhatsNewDialog(true);
       } else {
         setShowWhatsNewDialog(false);
       }
 
-    } catch (error) {
-      console.error("Error fetching latest app version or user's last seen version:", error);
+    } catch (error: any) {
+      console.error("[AppVersionContext] Error in fetchLatestVersionAndUserStatus (Firestore operation):", error);
+      if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
+        console.error(`[AppVersionContext] Firestore permission denied. Path: appVersionInfo/latest or users/${user.uid}. Check Firestore Security Rules.`);
+        // Potentially show a non-critical error to the user or degrade gracefully
+      }
       setLatestVersionInfo(null);
       setUserLastSeenVersion(null);
       setShowWhatsNewDialog(false);
@@ -88,8 +95,6 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
 
   useEffect(() => {
     if (authLoading) {
-      // If auth is still loading, we wait. isLoadingVersionInfo should remain true or be managed by subsequent states.
-      // Ensure isLoadingVersionInfo is true if we haven't determined user status yet.
       if (!currentUser) setIsLoadingVersionInfo(true);
       return;
     }
@@ -97,7 +102,6 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
     if (currentUser) {
       fetchLatestVersionAndUserStatus(currentUser);
     } else {
-      // No user, reset version-related states and indicate loading is done
       setLatestVersionInfo(null);
       setUserLastSeenVersion(null);
       setShowWhatsNewDialog(false);
@@ -111,11 +115,15 @@ export const AppVersionInfoProvider: React.FC<AppVersionInfoProviderProps> = ({ 
     if (currentUser && latestVersionInfo && latestVersionInfo.version !== userLastSeenVersion) {
       try {
         const userDocRef = doc(db, 'users', currentUser.uid);
-        // Use setDoc with merge:true to create or update
+        console.log(`[AppVersionContext] Attempting to set lastSeenAppVersion for users/${currentUser.uid} to: ${latestVersionInfo.version}`);
         await setDoc(userDocRef, { lastSeenAppVersion: latestVersionInfo.version }, { merge: true });
+        console.log(`[AppVersionContext] Successfully set lastSeenAppVersion for users/${currentUser.uid}.`);
         setUserLastSeenVersion(latestVersionInfo.version);
-      } catch (error) {
-        console.error("Error updating user's lastSeenAppVersion:", error);
+      } catch (error: any) {
+        console.error("[AppVersionContext] Error updating user's lastSeenAppVersion (Firestore operation):", error);
+         if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
+          console.error(`[AppVersionContext] Firestore permission denied when updating lastSeenAppVersion for users/${currentUser.uid}. Path: users/${currentUser.uid}. Check Firestore Security Rules.`);
+        }
       }
     }
   }, [currentUser, latestVersionInfo, userLastSeenVersion]);

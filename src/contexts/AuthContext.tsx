@@ -16,7 +16,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   type User,
-  type Auth as FirebaseAuthType // Import the Auth type
+  type FirebaseAuthType // Import the Auth type
 } from '@/lib/firebase';
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -71,7 +71,9 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       try {
         setLoadingMessage("Hämtar användardata...");
         const userDocRef = doc(db, 'users', user.uid);
+        console.log(`[AuthContext] Attempting to get user document: users/${user.uid}`);
         const userDocSnap = await getDoc(userDocRef);
+        console.log(`[AuthContext] User document exists for users/${user.uid}: ${userDocSnap.exists()}`);
 
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
@@ -83,7 +85,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
 
-          const authUserToUpdate = auth.currentUser; // Use imported auth from lib/firebase
+          const authUserToUpdate = auth.currentUser; 
           if (authUserToUpdate) {
             let firestoreUpdates: any = {};
             let authProfileNeedsUpdate = false;
@@ -109,16 +111,20 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             
             if (Object.keys(firestoreUpdates).length > 0) {
                firestoreUpdates.updatedAt = serverTimestamp();
+              console.log(`[AuthContext] Attempting to update user document users/${user.uid} with:`, firestoreUpdates);
               await updateDoc(userDocRef, firestoreUpdates);
+              console.log(`[AuthContext] User document users/${user.uid} updated successfully.`);
             }
             if (authProfileNeedsUpdate && Object.keys(authProfileUpdatePayload).length > 0) {
+              console.log(`[AuthContext] Attempting to update Firebase Auth profile for UID ${user.uid} with:`, authProfileUpdatePayload);
               await updateProfile(authUserToUpdate, authProfileUpdatePayload);
+              console.log(`[AuthContext] Firebase Auth profile for UID ${user.uid} updated successfully.`);
             }
           }
         } else {
           setLoadingMessage("Skapar användarprofil...");
           const initialDisplayName = user.displayName || '';
-          await setDoc(userDocRef, {
+          const newUserDocData = {
             uid: user.uid,
             email: user.email,
             displayName: initialDisplayName,
@@ -128,13 +134,20 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             subscriptionExpiresAt: null,
             mainBoardId: null,
             boardOrder: [],
-          });
+          };
+          console.log(`[AuthContext] Attempting to create user document users/${user.uid} with:`, newUserDocData);
+          await setDoc(userDocRef, newUserDocData);
+          console.log(`[AuthContext] User document users/${user.uid} created successfully.`);
           setSubscription({ status: 'inactive', expiresAt: null });
           setMainBoardId(null);
           setBoardOrder(null);
         }
-      } catch (error) {
-        console.error("Error fetching or creating user data in fetchUserData:", error);
+      } catch (error: any) {
+        console.error("[AuthContext] Error in fetchUserData (Firestore operation):", error);
+        if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
+          console.error(`[AuthContext] Firestore permission denied for UID: ${user.uid}. Path: users/${user.uid}. Check Firestore Security Rules.`);
+          alert(`Kritiskt fel: Åtkomst nekad till Firestore för användardata (users/${user.uid}). Kontrollera dina Firebase-säkerhetsregler i Firebase Console. Appen kan inte fungera korrekt.`);
+        }
         setSubscription({ status: 'inactive', expiresAt: null });
         setMainBoardId(null);
         setBoardOrder(null);
@@ -148,10 +161,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
 
   useEffect(() => {
-    setHasMounted(true); // Component has mounted
+    setHasMounted(true); 
     
-    // `auth` instance is initialized when lib/firebase.ts is imported.
-    // If it failed there, an error would have been thrown, stopping execution.
     setLoadingMessage("Sätter upp autentiseringslyssnare...");
     console.log("AuthProvider: Setting up onAuthStateChanged listener with directly imported auth instance.");
     
@@ -161,7 +172,6 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       if (user) {
         await fetchUserData(user);
       } else {
-        // Clear user-specific data if user logs out
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
@@ -182,7 +192,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
       unsubscribe();
     };
-  }, [fetchUserData]); // Only fetchUserData as dependency, auth instance is stable
+  }, [fetchUserData]); 
 
 
   const signUp = async (email: string, password: string, name: string) => {
@@ -190,7 +200,6 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName: name });
-      // fetchUserData will be called by onAuthStateChanged
     }
     setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
@@ -198,15 +207,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   const logIn = async (email: string, password: string) => {
     setLoadingMessage("Loggar in...");
-    // fetchUserData will be called by onAuthStateChanged
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const logOut = async () => {
     setLoadingMessage("Loggar ut...");
     await signOut(auth);
-    // User state will be cleared by onAuthStateChanged
-    router.push('/logga-in'); // Redirect after sign out
+    router.push('/logga-in'); 
     setLoadingMessage("Utloggad.");
   };
 
@@ -227,16 +234,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     }
   }, [fetchUserData]);
 
-  // Loading is true until component has mounted AND initial auth check is complete
   const loading = !hasMounted || !initialAuthCheckDone;
 
   if (!hasMounted) {
-    // Render nothing or a minimal loader until the component has mounted
-    // to prevent premature rendering of children that might depend on the context.
     return null; 
   }
 
-  // This loader will show if hasMounted is true but initialAuthCheckDone is false
   if (loading) {
      return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
