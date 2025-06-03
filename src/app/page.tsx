@@ -8,6 +8,7 @@ import Logo from '@/components/shared/logo';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
+// Diagnostic comment for HMR stability test - v2024-08-16-C
 export default function HomePage() {
   const { currentUser, loading } = useAuth();
 

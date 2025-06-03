@@ -145,8 +145,9 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       } catch (error: any) {
         console.error("[AuthContext] Error in fetchUserData (Firestore operation):", error);
         if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-          console.error(`[AuthContext] Firestore permission denied for UID: ${user.uid}. Path: users/${user.uid}. Check Firestore Security Rules.`);
-          alert(`Kritiskt fel: Åtkomst nekad till Firestore för användardata (users/${user.uid}). Kontrollera dina Firebase-säkerhetsregler i Firebase Console. Appen kan inte fungera korrekt.`);
+          const path = `users/${user.uid}`;
+          console.error(`[AuthContext] Firestore permission denied for UID: ${user.uid}. Path: ${path}. Check Firestore Security Rules.`);
+          alert(`Kritiskt fel: Åtkomst nekad till Firestore för sökvägen "${path}".\n\nKontrollera dina Firebase-säkerhetsregler i Firebase Console.\n\nEn typisk regel för att tillåta en användare att komma åt sitt eget dokument är:\nmatch /users/{userId} {\n  allow read, write: if request.auth != null && request.auth.uid == userId;\n}\n\nAppen kan inte fungera korrekt utan denna åtkomst.`);
         }
         setSubscription({ status: 'inactive', expiresAt: null });
         setMainBoardId(null);
