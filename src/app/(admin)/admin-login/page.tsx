@@ -10,10 +10,11 @@ import { Loader2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription as ShadAlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase'; // Added db
+import { doc, getDoc } from 'firebase/firestore'; // Added doc and getDoc
 import { useToast } from '@/hooks/use-toast';
 
-const ADMIN_EMAIL = "admin@ekonova.se"; 
+// Removed: const ADMIN_EMAIL = "admin@ekonova.se"; 
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -26,13 +27,8 @@ export default function AdminLoginPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
         document.title = 'Admin Inloggning - Ekonova';
-        // The main layout now handles redirection if already authenticated.
-        // This check can be a safeguard or removed if confident in main layout.
-        // if (localStorage.getItem('isAdminAuthenticated') === 'true') {
-        //     router.replace('/admin-dashboard'); 
-        // }
     }
-  }, [router]);
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -43,18 +39,31 @@ export default function AdminLoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      if (user && user.email === ADMIN_EMAIL) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('isAdminAuthenticated', 'true');
+      if (user && user.uid) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists() && userDocSnap.data()?.isAdmin === true) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('isAdminAuthenticated', 'true');
+          }
+          toast({ title: "Admin Inloggning Lyckades", description: "Välkommen till adminportalen." });
+          router.push('/admin-dashboard');
+        } else {
+          // Not an admin or document doesn't exist/isAdmin field missing
+          if (auth.currentUser) { // Ensure we sign out the user that just attempted login
+              await auth.signOut(); 
+          }
+          setError('Åtkomst nekad. Endast auktoriserade administratörer med isAdmin-flaggan satt.');
+          toast({ title: "Admin Inloggning Misslyckades", description: "Åtkomst nekad. Användaren är inte administratör.", variant: "destructive" });
         }
-        toast({ title: "Inloggning Lyckades", description: "Välkommen till adminportalen." });
-        router.push('/admin-dashboard'); 
       } else {
+        // Should not happen if signInWithEmailAndPassword was successful, but as a fallback
         if (auth.currentUser) {
-            await auth.signOut(); 
+            await auth.signOut();
         }
-        setError('Åtkomst nekad. Endast auktoriserade administratörer.');
-        toast({ title: "Inloggning Misslyckades", description: "Åtkomst nekad.", variant: "destructive" });
+        setError('Ett oväntat fel inträffade vid verifiering av användarstatus.');
+        toast({ title: "Admin Inloggning Misslyckades", description: "Kunde inte verifiera användarstatus.", variant: "destructive" });
       }
     } catch (err: any) {
       console.error("Admin login error:", err);
@@ -74,7 +83,7 @@ export default function AdminLoginPage() {
     <Card className="w-full">
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-2xl">Admin Inloggning</CardTitle>
-        <CardDescription>Logga in för att komma åt adminportalen.</CardDescription>
+        <CardDescription>Logga in med ditt Ekonova-konto för att komma åt adminportalen.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
         {error && (
@@ -86,8 +95,8 @@ export default function AdminLoginPage() {
         )}
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="email">E-post (Admin)</Label>
-            <Input id="email" type="email" placeholder="admin@ekonova.se" required value={email} onChange={e => setEmail(e.target.value)} />
+            <Label htmlFor="email">E-post</Label>
+            <Input id="email" type="email" placeholder="din.email@example.com" required value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="password">Lösenord</Label>
@@ -99,7 +108,7 @@ export default function AdminLoginPage() {
         </form>
       </CardContent>
       <CardFooter>
-        <p className="text-xs text-muted-foreground">Detta är en separat inloggning för administratörer.</p>
+        <p className="text-xs text-muted-foreground">Logga in med ditt vanliga Ekonova-konto. Adminstatus verifieras via databasen.</p>
       </CardFooter>
     </Card>
   );
