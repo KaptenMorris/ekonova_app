@@ -158,7 +158,6 @@ export default function DashboardPage() {
   const [newCategoryIconName, setNewCategoryIconName] = useState<string | undefined>(iconOptions.find(opt => opt.value === 'Shapes')?.value);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  // const [isCategoryEditMode, setIsCategoryEditMode] = useState(false); // This seemed unused, removed for now
 
   const [isMemberManagementDialogOpen, setIsMemberManagementDialogOpen] = useState(false);
   const [boardToManageMembersFor, setBoardToManageMembersFor] = useState<Board | null>(null);
@@ -788,7 +787,7 @@ export default function DashboardPage() {
   const resetTransactionForm = () => {
     setNewTransactionTitle('');
     setNewTransactionAmount('');
-    setNewTransactionDate(format(selectedMonthDate, 'yyyy-MM-dd'));
+    setNewTransactionDate(format(selectedMonthDate, 'yyyy-MM-dd')); // Use selectedMonthDate
     setNewTransactionCategory(undefined);
     setNewTransactionDescription('');
     setEditingTransaction(null);
@@ -813,7 +812,7 @@ export default function DashboardPage() {
     setEditingTransaction(transaction);
     setNewTransactionTitle(transaction.title);
     setNewTransactionAmount(String(transaction.amount));
-    setNewTransactionDate(transaction.date);
+    setNewTransactionDate(transaction.date); // The original date of the transaction
     setNewTransactionCategory(transaction.category);
     setNewTransactionDescription(transaction.description || '');
     setIsTransactionDialogOpen(true);
@@ -845,7 +844,7 @@ export default function DashboardPage() {
     const transactionPayload: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: any, updatedAt?: any } = {
       title: newTransactionTitle,
       amount: amount,
-      date: newTransactionDate,
+      date: newTransactionDate, // This comes from the form, pre-filled based on selectedMonthDate or editingTransaction.date
       category: newTransactionCategory,
       description: newTransactionDescription,
       type: selectedCategoryDetails.type,
@@ -1199,11 +1198,11 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h4 className="text-md font-semibold mb-2 text-accent">Inkomstkategorier</h4>
-                  {Object.entries(categoryTotals).filter(([,data]) => data.type === 'income' && data.total > 0).length > 0 ? (
+                  {categories.filter(cat => cat.type === 'income').length > 0 ? (
                     <ScrollArea className="h-[150px] md:h-auto pr-2">
                       <ul className="space-y-2">
                         {Object.entries(categoryTotals)
-                          .filter(([, data]) => data.type === 'income' && data.total > 0)
+                          .filter(([, data]) => data.type === 'income')
                           .sort(([, a], [, b]) => b.total - a.total)
                           .map(([catId, data]) => {
                             const category = categories.find(c => c.id === catId);
@@ -1220,17 +1219,17 @@ export default function DashboardPage() {
                       </ul>
                     </ScrollArea>
                   ) : (
-                    <p className="text-sm text-muted-foreground py-4">Inga inkomster att visa i kategoriöversikten för {formattedSelectedMonth}.</p>
+                    <p className="text-sm text-muted-foreground py-4">Inga inkomstkategorier definierade för denna tavla.</p>
                   )}
                 </div>
                 <div>
                   <h4 className="text-md font-semibold mb-2 text-destructive">Utgiftskategorier</h4>
-                  {Object.entries(categoryTotals).filter(([,data]) => data.type === 'expense' && data.total > 0).length > 0 ? (
+                   {categories.filter(cat => cat.type === 'expense').length > 0 ? (
                     <ScrollArea className="h-[150px] md:h-auto pr-2">
                       <ul className="space-y-2">
                         {Object.entries(categoryTotals)
-                          .filter(([, data]) => data.type === 'expense' && data.total > 0)
-                          .sort(([, a], [, b]) => b.total - a.total)
+                          .filter(([, data]) => data.type === 'expense')
+                           .sort(([, a], [, b]) => b.total - a.total)
                           .map(([catId, data]) => {
                             const category = categories.find(c => c.id === catId);
                             return (
@@ -1246,7 +1245,7 @@ export default function DashboardPage() {
                       </ul>
                     </ScrollArea>
                   ) : (
-                    <p className="text-sm text-muted-foreground py-4">Inga utgifter att visa i kategoriöversikten för {formattedSelectedMonth}.</p>
+                    <p className="text-sm text-muted-foreground py-4">Inga utgiftskategorier definierade för denna tavla.</p>
                   )}
                 </div>
               </div>
@@ -1441,3 +1440,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
