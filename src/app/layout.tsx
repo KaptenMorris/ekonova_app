@@ -1,71 +1,35 @@
 
-"use client";
-
-// HMR Nudge Comment - vFINAL_LAYOUT_ATTEMPT_Z_PROVIDER_NEST - 2024-08-15T14:30:00Z
 import './globals.css';
-import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from "@/components/ui/toaster";
-import { Inter } from 'next/font/google'
-import { AuthProvider } from '@/contexts/AuthContext';
-import React, { useEffect } from 'react';
-import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
+import { Inter } from 'next/font/google';
+import React from 'react';
 
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // console.log(`RootLayout rendering/re-evaluating... (HMR Checkpoint vFINAL - ${new Date().toISOString()})`); // Removed this diagnostic log
-  useEffect(() => {
-    // Service Worker registration logic
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then((registration) => {
-          console.log('Service Worker registered with scope:', registration.scope);
-        })
-        .catch((error) => {
-          console.error('Service Worker registration failed:', error);
-        });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      document.title = 'Ekonova'; // Default title
-    }
-  }, []);
-
   return (
-    <html lang="sv" suppressHydrationWarning data-app-version="1.0.0-a-final">
+    <html lang="sv" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="Din personliga ekonomi app" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#73A580" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Ekonova" />
+        <meta name="description" content="Ekonova - Debug Mode" />
+        {/* Manifest link temporarily removed to reduce failure points if missing */}
+        {/* <link rel="manifest" href="/manifest.json" /> */}
+        <meta name="theme-color" content="#FFFFFF" />
+        <title>Ekonova - Debug</title>
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <AppVersionInfoProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              {children}
-              <Toaster />
-            </ThemeProvider>
-          </AppVersionInfoProvider>
-        </AuthProvider>
+        <main style={{ padding: '20px', border: '2px dashed blue', margin: '10px' }}>
+          <h1 style={{color: 'blue', fontSize: '24px'}}>Simplified Layout Loaded</h1>
+          <p>If you see this, the basic layout is rendering.</p>
+          <div style={{ border: '1px solid green', padding: '10px', marginTop: '10px' }}>
+            {children}
+          </div>
+        </main>
       </body>
     </html>
   );
 }
-

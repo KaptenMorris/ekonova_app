@@ -1,31 +1,14 @@
 
 "use client";
 
-// HMR Diagnostic Comment - vFINAL_PAGE_TS_ATTEMPT_Z_PERSISTENT_HMR - 2024-08-15T16:00:00Z
-// HMR Diagnostic Comment - CHUNK_404_ERROR_ATTEMPT - 2024-08-15T17:00:00Z
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+// HMR Diagnostic Comment - SIMPLIFIED_PAGE_DEBUG_3 - 2024-08-15T17:00:00Z
+import React from 'react';
 
 export default function HomePage() {
-  const router = useRouter();
-  const { currentUser, loading } = useAuth();
-
-  useEffect(() => {
-    console.log("HomePage useEffect (HMR Check): Auth loading state:", loading, "CurrentUser:", !!currentUser); 
-    if (!loading) {
-      if (currentUser) {
-        router.replace('/dashboard');
-      } else {
-        router.replace('/logga-in');
-      }
-    }
-  }, [currentUser, loading, router]);
-
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-background">
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+    <div style={{ padding: '20px', border: '2px solid red' }}>
+      <h2 style={{color: 'red', fontSize: '20px'}}>Hello from Simplified Page!</h2>
+      <p>If you see this, the basic page content is rendering inside the layout.</p>
     </div>
   );
 }
