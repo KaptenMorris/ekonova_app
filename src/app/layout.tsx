@@ -18,7 +18,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  console.log(`RootLayout rendering/re-evaluating... (HMR Checkpoint vFINAL - ${new Date().toISOString()})`); // Diagnostic log
+  // console.log(`RootLayout rendering/re-evaluating... (HMR Checkpoint vFINAL - ${new Date().toISOString()})`); // Removed this diagnostic log
   useEffect(() => {
     // Service Worker registration logic
     if ('serviceWorker' in navigator) {
