@@ -17,19 +17,20 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Nodemailer Configuration ---
-    const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS } = process.env;
+    // Using EMAIL_USER and EMAIL_PASS as per user's .env file
+    const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, EMAIL_USER, EMAIL_PASS } = process.env;
 
     console.log("Attempting to read SMTP environment variables...");
     console.log(`SMTP_HOST: ${SMTP_HOST ? 'Set' : 'NOT SET'}`);
     console.log(`SMTP_PORT: ${SMTP_PORT ? 'Set' : 'NOT SET'}`);
-    console.log(`SMTP_SECURE: ${SMTP_SECURE ? 'Set' : 'NOT SET'}`);
-    console.log(`SMTP_USER: ${SMTP_USER ? 'Set' : 'NOT SET'}`);
-    console.log(`SMTP_PASS: ${SMTP_PASS ? 'Set (length hidden for security)' : 'NOT SET'}`);
+    console.log(`SMTP_SECURE: ${SMTP_SECURE ? `Set as '${SMTP_SECURE}'` : 'NOT SET (defaults to false for port 587)'}`);
+    console.log(`EMAIL_USER (for SMTP_USER): ${EMAIL_USER ? 'Set' : 'NOT SET'}`);
+    console.log(`EMAIL_PASS (for SMTP_PASS): ${EMAIL_PASS ? 'Set (length hidden)' : 'NOT SET'}`);
 
 
-    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
+    if (!SMTP_HOST || !SMTP_PORT || !EMAIL_USER || !EMAIL_PASS) {
       console.error('API Error: Crucial SMTP environment variables are not configured on the server.');
-      console.error('Required: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.');
+      console.error('Required: SMTP_HOST, SMTP_PORT, EMAIL_USER (for SMTP username), EMAIL_PASS (for SMTP password).');
       return Response.json({ error: 'Server configuration error for email sending. Admin needs to set SMTP variables.' }, { status: 500 });
     }
     
@@ -39,16 +40,18 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Server configuration error: Invalid SMTP port format.' }, { status: 500 });
     }
 
-    console.log("Attempting to create nodemailer transporter with the following config (password is hidden for security):");
-    console.log(`Host: ${SMTP_HOST}, Port: ${portNumber}, Secure: ${SMTP_SECURE === 'true'}, User: ${SMTP_USER}`);
+    // For port 587, secure is typically false (TLS). If SMTP_SECURE is explicitly set to 'true', use that.
+    const isSecure = SMTP_SECURE === 'true';
+    console.log(`Attempting to create nodemailer transporter with the following config (password is hidden for security):`);
+    console.log(`Host: ${SMTP_HOST}, Port: ${portNumber}, Secure: ${isSecure}, User: ${EMAIL_USER}`);
     
     const transporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: portNumber,
-      secure: SMTP_SECURE === 'true', // Convert string "true" to boolean true
+      secure: isSecure, 
       auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
+        user: EMAIL_USER, // Use EMAIL_USER from .env
+        pass: EMAIL_PASS, // Use EMAIL_PASS from .env
       },
       // logger: true, // Enable for very verbose SMTP logs if needed for deep debugging
       // debug: true,
@@ -88,9 +91,9 @@ export async function POST(request: NextRequest) {
 
     // --- Send Email ---
     try {
-      console.log(`Preparing to send email to ${targetEmail} from ${SMTP_USER} via ${SMTP_HOST}:${SMTP_PORT}...`);
+      console.log(`Preparing to send email to ${targetEmail} from ${EMAIL_USER} via ${SMTP_HOST}:${SMTP_PORT}...`);
       const mailInfo = await transporter.sendMail({
-        from: `"Ekonova Support" <${SMTP_USER}>`,
+        from: `"Ekonova Support" <${EMAIL_USER}>`, // Send from EMAIL_USER
         to: targetEmail,
         replyTo: userEmail,
         subject: subject,
@@ -119,7 +122,7 @@ export async function POST(request: NextRequest) {
       if (emailError.code === 'EENVELOPE' || emailError.code === 'ESOCKET' || emailError.code === 'ECONNREFUSED') {
         userFriendlyError = "Kunde inte ansluta till e-postservern. Kontrollera SMTP_HOST och SMTP_PORT, samt att servern är tillgänglig.";
       } else if (emailError.code === 'EAUTH') {
-        userFriendlyError = "Autentiseringsfel med e-postservern. Kontrollera SMTP_USER och SMTP_PASS.";
+        userFriendlyError = "Autentiseringsfel med e-postservern. Kontrollera EMAIL_USER och EMAIL_PASS.";
       }
       return Response.json({ error: userFriendlyError }, { status: 500 });
     }
