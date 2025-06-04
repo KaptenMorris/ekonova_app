@@ -3,36 +3,39 @@
 
 import React, { useState, useEffect, FormEvent, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card'; 
+import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger, DialogDescription as ShadDialogDescription // Alias to avoid conflict if needed
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger, DialogDescription as ShadDialogDescription
 } from '@/components/ui/dialog';
-import { PlusCircle, Edit3, Trash2, CheckCircle, Circle, Loader2, AlertCircle, Camera, Upload, RefreshCw, Share2 as ShareIcon } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, CheckCircle, Circle, Loader2, AlertCircle, Camera, Upload, RefreshCw, Share2 as ShareIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query as firestoreQuery, where, getDocs, writeBatch, serverTimestamp, DocumentData, orderBy, FieldValue, getDoc } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
-import { Alert, AlertTitle, AlertDescription as ShadAlertDescriptionComponent } from "@/components/ui/alert"; 
+import { Alert, AlertTitle, AlertDescription as ShadAlertDescriptionComponent } from "@/components/ui/alert";
 import Image from 'next/image';
 import { parseBill, type ParseBillInput, type ParseBillOutput } from '@/ai/flows/parse-bill-flow';
 import SubscriptionPrompt from '@/components/shared/subscription-prompt';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from 'date-fns';
+import { sv } from 'date-fns/locale';
+
 
 interface Bill {
   id: string;
   title: string;
   amount: number;
-  dueDate: string; // ISO String
+  dueDate: string; // ISO String "YYYY-MM-DD"
   category: string; // Category ID
   notes?: string;
   paid: boolean;
   boardId: string;
-  receiptImage?: string; 
+  receiptImage?: string;
   createdAt?: any;
   updatedAt?: any;
   paidByUid?: string | null;
@@ -67,7 +70,7 @@ type UserRole = 'owner' | 'editor' | 'viewer' | 'none';
 const getUserRoleOnBoard = (board: Board | null | undefined, user: ReturnType<typeof useAuth>['currentUser'] | null): UserRole => {
   if (!user || !board) return 'none';
   if (board.ownerUid === user.uid) return 'owner';
-  return board.memberRoles?.[user.uid] || (board.members?.includes(user.uid) ? 'viewer' : 'none'); 
+  return board.memberRoles?.[user.uid] || (board.members?.includes(user.uid) ? 'viewer' : 'none');
 };
 
 interface ShareBillDialogProps {
@@ -129,7 +132,7 @@ const ShareBillDialog: React.FC<ShareBillDialogProps> = ({ isOpen, onOpenChange,
           originalBillId: billToShare.id,
           sharedByUid: currentUserUid,
           sharedByDisplayName: currentUserDisplayName || "Okänd användare",
-          createdByUid: billToShare.createdByUid || currentUserUid, 
+          createdByUid: billToShare.createdByUid || currentUserUid,
           createdByDisplayName: billToShare.createdByDisplayName || currentUserDisplayName || "Okänd användare",
           createdAt: serverTimestamp(),
         };
@@ -233,6 +236,18 @@ export default function BillsPage() {
   const [isShareBillDialogOpen, setIsShareBillDialogOpen] = React.useState(false);
   const [billToShare, setBillToShare] = React.useState<Bill | null>(null);
 
+  const [selectedMonthDate, setSelectedMonthDate] = useState<Date>(startOfMonth(new Date()));
+
+  const handlePreviousMonth = () => setSelectedMonthDate(prevDate => subMonths(prevDate, 1));
+  const handleNextMonth = () => setSelectedMonthDate(prevDate => addMonths(prevDate, 1));
+  const isCurrentMonthOrFuture = useMemo(() => {
+    const currentMonthStart = startOfMonth(new Date());
+    return isSameMonth(selectedMonthDate, currentMonthStart) || selectedMonthDate > currentMonthStart;
+  }, [selectedMonthDate]);
+  const formattedSelectedMonth = useMemo(() => {
+    return format(selectedMonthDate, 'MMMM yyyy', { locale: sv });
+  }, [selectedMonthDate]);
+
 
   const isSubscribed = React.useMemo(() => {
     return subscription?.status === 'active' && (subscription.expiresAt ? subscription.expiresAt > new Date() : true);
@@ -285,7 +300,7 @@ export default function BillsPage() {
     } else if (boards.length > 0) {
       newTargetBoardId = boards[0].id;
     }
-    
+
     setActiveBoardId(prevActiveBoardId => {
         if (prevActiveBoardId !== newTargetBoardId) {
             return newTargetBoardId;
@@ -302,12 +317,12 @@ export default function BillsPage() {
         const currentBoard = boards.find(b => b.id === activeBoardId);
         setActiveBoardName(currentBoard ? currentBoard.name : "");
     } else if (!activeBoardId) {
-        setActiveBoardName(""); 
+        setActiveBoardName("");
     }
   }, [activeBoardId, boards]);
 
 
-  // Effect 3: Fetch bills and pageExpenseCategories for the active board
+  // Effect 3: Fetch bills and pageExpenseCategories for the active board and selected month
   React.useEffect(() => {
     if (!currentUser?.uid || !activeBoardId || !isSubscribed || authLoading) {
       setBills([]);
@@ -316,31 +331,38 @@ export default function BillsPage() {
       return;
     }
     setIsLoadingPageData(true);
-    setBills([]); 
-    setPageExpenseCategories([]); 
+    setBills([]);
+    setPageExpenseCategories([]);
 
     let unsubBills: () => void = () => {};
     let unsubCategories: () => void = () => {};
 
     const billsRef = collection(db, 'boards', activeBoardId, 'bills');
-    const billsQuery = firestoreQuery(billsRef, orderBy("dueDate", "asc"));
+    const currentMonthStart = format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd');
+    const currentMonthEnd = format(endOfMonth(selectedMonthDate), 'yyyy-MM-dd');
+
+    const billsQuery = firestoreQuery(
+        billsRef,
+        where("dueDate", ">=", currentMonthStart),
+        where("dueDate", "<=", currentMonthEnd),
+        orderBy("dueDate", "asc")
+    );
     unsubBills = onSnapshot(billsQuery, (snapshot) => {
       let fetchedBills = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Bill));
       setBills(fetchedBills);
-      setIsLoadingPageData(false); 
+      setIsLoadingPageData(false);
     }, (error) => {
-      console.error("Error fetching bills for board", activeBoardId, error);
-      toast({ title: "Fel", description: "Kunde inte hämta räkningar.", variant: "destructive" });
+      console.error("Error fetching bills for board", activeBoardId, "and month", formattedSelectedMonth, error);
+      toast({ title: "Fel", description: "Kunde inte hämta räkningar för vald månad.", variant: "destructive" });
       setIsLoadingPageData(false);
     });
 
     const categoriesRef = collection(db, 'boards', activeBoardId, 'categories');
-    const categoriesQuery = firestoreQuery(categoriesRef); // No orderBy to avoid index, will sort client-side
+    const categoriesQuery = firestoreQuery(categoriesRef);
     unsubCategories = onSnapshot(categoriesQuery, (snapshot) => {
       let fetchedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
       fetchedCategories = fetchedCategories.filter(c => c.type === 'expense').sort((a,b) => a.name.localeCompare(b.name));
       setPageExpenseCategories(fetchedCategories);
-      // isLoadingPageData is primarily for bills
     }, (error) => {
       console.error("Error fetching categories for page", activeBoardId, error);
       toast({ title: "Fel", description: "Kunde inte hämta utgiftskategorier.", variant: "destructive" });
@@ -350,7 +372,7 @@ export default function BillsPage() {
       unsubBills();
       unsubCategories();
     }
-  }, [currentUser?.uid, activeBoardId, toast, isSubscribed, authLoading]);
+  }, [currentUser?.uid, activeBoardId, selectedMonthDate, toast, isSubscribed, authLoading, formattedSelectedMonth]);
 
  // Effect 4: Fetch expense categories for the dialog when dialogTargetBoardId changes (for new bills)
  React.useEffect(() => {
@@ -360,7 +382,7 @@ export default function BillsPage() {
     }
     setIsLoadingDialogCategories(true);
     const categoriesRef = collection(db, 'boards', dialogTargetBoardId, 'categories');
-    const categoriesQuery = firestoreQuery(categoriesRef); // No orderBy to avoid index
+    const categoriesQuery = firestoreQuery(categoriesRef);
 
     getDocs(categoriesQuery)
       .then((snapshot) => {
@@ -458,13 +480,16 @@ export default function BillsPage() {
     setBillReceiptImage(imageDataUri);
     setIsParsingBill(true);
     setDialogError(null);
+    // Reset form fields for AI parsing
     setBillTitle('');
     setBillAmount('');
-    setBillDueDate(new Date().toISOString().split('T')[0]);
+    // Set due date to first of selected month when parsing, user can change
+    setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd'));
     setBillCategory('');
     setBillNotes('');
-    setCurrentBill(null); 
-    if (activeBoardId) { 
+    setCurrentBill(null);
+    // If activeBoardId is set, use it for the dialog target
+    if (activeBoardId) {
         setDialogTargetBoardId(activeBoardId);
     }
 
@@ -475,7 +500,20 @@ export default function BillsPage() {
 
       if (result.title) setBillTitle(result.title);
       if (result.amount !== undefined) setBillAmount(String(result.amount));
-      if (result.dueDate) setBillDueDate(result.dueDate);
+      if (result.dueDate) {
+         // Ensure parsed due date is valid before setting
+        try {
+            const parsed = new Date(result.dueDate);
+            if (!isNaN(parsed.getTime())) {
+                setBillDueDate(result.dueDate);
+            } else {
+                 toast({ title: "Varning", description: "AI kunde inte tolka ett giltigt förfallodatum. Standarddatum används.", variant: "default" });
+            }
+        } catch (e) {
+            toast({ title: "Varning", description: "AI returnerade ett ogiltigt förfallodatumformat. Standarddatum används.", variant: "default" });
+        }
+      }
+
 
       toast({ title: "Räkningsdata Extraherad", description: "Fälten har fyllts i. Välj måltavla och kategori, granska och spara."});
     } catch (err) {
@@ -484,13 +522,13 @@ export default function BillsPage() {
       setDialogError("Kunde inte tolka räkningen. Fyll i manuellt.");
     } finally {
       setIsParsingBill(false);
-      setIsBillDialogOpen(true); 
+      setIsBillDialogOpen(true);
     }
   };
 
 
   const handleOpenNewBillDialog = () => {
-    if (!canEditActiveBoard && activeBoardId) { 
+    if (!canEditActiveBoard && activeBoardId) {
       toast({ title: "Åtkomst Nekad", description: "Du har inte behörighet att lägga till räkningar på denna tavla.", variant: "destructive" });
       return;
     }
@@ -501,13 +539,14 @@ export default function BillsPage() {
     setCurrentBill(null);
     setBillTitle('');
     setBillAmount('');
-    setBillDueDate(new Date().toISOString().split('T')[0]);
+    // Default due date to first of currently selected month on the page
+    setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd'));
     setBillCategory('');
     setBillNotes('');
     setBillReceiptImage(null);
     setDialogError(null);
-    setDialogTargetBoardId(activeBoardId); 
-    setDialogExpenseCategories(pageExpenseCategories); 
+    setDialogTargetBoardId(activeBoardId);
+    setDialogExpenseCategories(pageExpenseCategories);
     setIsBillDialogOpen(true);
   };
 
@@ -521,7 +560,7 @@ export default function BillsPage() {
       setDialogError("Ingen användare eller måltavla vald.");
       return;
     }
-    
+
     const targetBoardDetails = boards.find(b => b.id === boardForBill);
     const roleOnTargetBoard = getUserRoleOnBoard(targetBoardDetails, currentUser);
     const canEditTargetBoard = roleOnTargetBoard === 'owner' || roleOnTargetBoard === 'editor';
@@ -545,7 +584,7 @@ export default function BillsPage() {
     const billPayload: Partial<Bill> = {
       title: billTitle,
       amount: numericAmount,
-      dueDate: billDueDate,
+      dueDate: billDueDate, // This is crucial for monthly filtering
       category: billCategory,
       notes: billNotes || '',
       boardId: boardForBill,
@@ -557,14 +596,14 @@ export default function BillsPage() {
       sharedByDisplayName: currentBill?.sharedByDisplayName || null,
     };
 
-    if (!currentBill?.id) { 
+    if (!currentBill?.id) {
       billPayload.createdByUid = currentUser.uid;
       billPayload.createdByDisplayName = currentUser.displayName || currentUser.email || "Okänd användare";
-      billPayload.paid = false; 
+      billPayload.paid = false;
       billPayload.paidByUid = null;
       billPayload.paidByDisplayName = null;
-    } else { 
-      billPayload.paid = currentBill.paid; 
+    } else {
+      billPayload.paid = currentBill.paid;
       billPayload.paidByUid = currentBill.paidByUid;
       billPayload.paidByDisplayName = currentBill.paidByDisplayName;
     }
@@ -572,25 +611,26 @@ export default function BillsPage() {
 
     try {
       const billsCollectionRef = collection(db, 'boards', boardForBill, 'bills');
-      if (currentBill?.id) { 
+      if (currentBill?.id) {
         billPayload.updatedAt = serverTimestamp();
         delete billPayload.createdByUid;
         delete billPayload.createdByDisplayName;
         await updateDoc(doc(billsCollectionRef, currentBill.id), billPayload);
         toast({ title: "Räkning Uppdaterad" });
-      } else { 
+      } else {
         billPayload.createdAt = serverTimestamp();
         await addDoc(billsCollectionRef, billPayload);
         toast({ title: "Räkning Tillagd" });
       }
       setIsBillDialogOpen(false);
+      // Reset form to defaults for next new bill
       setBillTitle('');
       setBillAmount('');
-      setBillDueDate(new Date().toISOString().split('T')[0]);
+      setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd')); // Reset to current viewing month
       setBillNotes('');
       setBillReceiptImage(null);
       setCurrentBill(null);
-      setDialogTargetBoardId(undefined); 
+      setDialogTargetBoardId(activeBoardId); // Reset target to current active board
       setBillCategory('');
     } catch (error) {
       console.error("Error saving bill:", error);
@@ -616,27 +656,27 @@ export default function BillsPage() {
     const batch = writeBatch(db);
 
     try {
-      if (!bill.paid) { 
+      if (!bill.paid) {
         batch.update(billDocRef, {
           paid: true,
           paidByUid: currentUser.uid,
           paidByDisplayName: currentUser.displayName || currentUser.email || "Okänd användare"
         });
-        const newTransactionRef = doc(transactionsRef); 
+        const newTransactionRef = doc(transactionsRef);
         batch.set(newTransactionRef, {
           title: `Betalning: ${bill.title}`,
           amount: bill.amount,
-          date: new Date().toISOString().split('T')[0], 
-          category: bill.category, 
+          date: new Date().toISOString().split('T')[0], // Transaction date is today
+          category: bill.category,
           type: 'expense',
           description: `Automatisk transaktion för betald räkning (ID: ${bill.id}).`,
-          linkedBillId: bill.id, 
+          linkedBillId: bill.id,
           createdAt: serverTimestamp(),
-          boardId: bill.boardId 
+          boardId: bill.boardId
         });
         await batch.commit();
         toast({title: "Räkning Betald", description: `${bill.title} markerad som betald och transaktion skapad.`});
-      } else { 
+      } else {
         batch.update(billDocRef, {
           paid: false,
           paidByUid: null,
@@ -661,67 +701,50 @@ export default function BillsPage() {
   };
 
   const handleDeleteBill = async (billId: string, boardIdOfBill: string) => {
-    console.log(`[BILL_DELETE] Attempting to delete bill: ${billId} from board: ${boardIdOfBill}`);
     if (!currentUser || !currentUser.uid || !boardIdOfBill) {
-        console.log("[BILL_DELETE] Pre-condition failed: Missing currentUser, UID, or boardIdOfBill.");
         toast({ title: "Fel", description: "Nödvändig information saknas för att radera.", variant: "destructive" });
         return;
     }
-    
+
     const targetBoardDetails = boards.find(b => b.id === boardIdOfBill);
     const roleOnTargetBoard = getUserRoleOnBoard(targetBoardDetails, currentUser);
 
-    if (!canEditActiveBoard) { 
-        console.log(`[BILL_DELETE] Permission check failed. User role on board ${boardIdOfBill}: ${roleOnTargetBoard}. Expected 'owner' or 'editor'.`);
+    if (!canEditActiveBoard) {
         toast({ title: "Åtkomst Nekad", description: `Du har inte behörighet att radera räkningar på tavlan "${targetBoardDetails?.name || boardIdOfBill}".`, variant: "destructive" });
         return;
     }
 
     const billToDelete = bills.find(b => b.id === billId && b.boardId === boardIdOfBill);
     if (!billToDelete) {
-        console.log(`[BILL_DELETE] Bill with ID ${billId} not found in local state for board ${boardIdOfBill}.`);
         toast({ title: "Fel", description: "Räkningen kunde inte hittas i den lokala listan.", variant: "destructive" });
         return;
     }
-    console.log("[BILL_DELETE] Bill to delete object:", billToDelete);
 
 
     if (!confirm(`Är du säker på att du vill radera räkningen "${billToDelete.title}" från tavlan "${activeBoardName || 'denna tavla'}"?\n${billToDelete.paid ? 'Detta kommer också att ta bort den kopplade betalningstransaktionen på denna tavla.' : ''}`)) {
-        console.log("[BILL_DELETE] User cancelled deletion.");
         return;
     }
 
-    console.log("[BILL_DELETE] User confirmed. Proceeding with deletion logic.");
     const billDocRef = doc(db, 'boards', boardIdOfBill, 'bills', billId);
     const transactionsRef = collection(db, 'boards', boardIdOfBill, 'transactions');
     const batch = writeBatch(db);
 
     try {
-      console.log(`[BILL_DELETE] Adding delete operation for billDocRef: ${billDocRef.path} to batch.`);
       batch.delete(billDocRef);
 
       if (billToDelete.paid) {
-        console.log(`[BILL_DELETE] Bill was paid. Looking for linked transaction with linkedBillId: ${billId}`);
         const q = firestoreQuery(transactionsRef, where("linkedBillId", "==", billId), where("type", "==", "expense"));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
             querySnapshot.forEach((transactionDoc) => {
-              console.log(`[BILL_DELETE] Adding delete operation for transactionDoc: ${transactionDoc.ref.path} to batch.`);
               batch.delete(transactionDoc.ref);
             });
-        } else {
-            console.log(`[BILL_DELETE] No linked transaction found for paid bill ${billId}.`);
         }
-      } else {
-        console.log(`[BILL_DELETE] Bill ${billId} was not paid, no linked transaction to delete.`);
       }
-
-      console.log("[BILL_DELETE] Committing batch operation...");
       await batch.commit();
-      console.log("[BILL_DELETE] Batch commit successful.");
       toast({title: "Räkning Raderad", description: `Räkningen "${billToDelete.title}" och eventuell kopplad transaktion har raderats från tavlan "${activeBoardName || 'denna tavla'}".`});
     } catch (error: any) {
-      console.error("[BILL_DELETE] Error during batch commit or Firestore operation:", error);
+      console.error("Error during batch commit or Firestore operation:", error);
       let description = "Kunde inte radera räkningen.";
       if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
         description = "Åtkomst nekad. Kontrollera dina Firestore-säkerhetsregler. Fullständigt fel: " + error.message;
@@ -815,13 +838,27 @@ export default function BillsPage() {
         </div>
       </div>
 
-      {(isLoadingPageData && activeBoardId) && <div className="flex justify-center items-center h-32"><Loader2 className="h-8 w-8 animate-spin" /> Laddar räkningar...</div>}
+      {activeBoardId && (
+        <div className="flex items-center justify-center sm:justify-start gap-4 my-2">
+          <Button variant="outline" size="icon" onClick={handlePreviousMonth} disabled={isLoadingPageData}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-lg font-medium w-40 text-center tabular-nums">
+            {formattedSelectedMonth}
+          </span>
+          <Button variant="outline" size="icon" onClick={handleNextMonth} disabled={isLoadingPageData || isCurrentMonthOrFuture}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      {(isLoadingPageData && activeBoardId) && <div className="flex justify-center items-center h-32"><Loader2 className="h-8 w-8 animate-spin" /> Laddar räkningar för {formattedSelectedMonth}...</div>}
 
 
       {!isLoadingPageData && activeBoardId && (
         <>
           <Card>
-            <CardHeader><CardTitle>Obetalda Räkningar</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Obetalda Räkningar ({formattedSelectedMonth})</CardTitle></CardHeader>
             <CardContent>
               {unpaidBills.length > 0 ? (
                 <ul className="space-y-3">
@@ -831,7 +868,7 @@ export default function BillsPage() {
                         <Checkbox id={`bill-${bill.id}`} checked={bill.paid} onCheckedChange={() => toggleBillPaidStatus(bill)} aria-label={`Markera ${bill.title} som ${bill.paid ? 'obetald' : 'betald'}`} disabled={!canEditActiveBoard || isLoadingPageData}/>
                         <div className="min-w-0">
                           <Label htmlFor={`bill-${bill.id}`} className={`font-semibold cursor-pointer truncate block ${!canEditActiveBoard ? 'cursor-default' : ''}`}>{bill.title}</Label>
-                          <p className="text-xs text-muted-foreground">Förfaller: {new Date(bill.dueDate).toLocaleDateString('sv-SE')} - {pageExpenseCategories.find(c=>c.id === bill.category)?.name || bill.category}</p>
+                          <p className="text-xs text-muted-foreground">Förfaller: {new Date(bill.dueDate + 'T00:00:00').toLocaleDateString('sv-SE')} - {pageExpenseCategories.find(c=>c.id === bill.category)?.name || bill.category}</p>
                           {bill.notes && <p className="text-xs mt-1 break-words">{bill.notes}</p>}
                           {bill.createdByDisplayName && (<p className="text-xs mt-1 text-gray-500 dark:text-gray-400">Skapad av: {bill.createdByDisplayName}</p>)}
                            {bill.isSharedCopy && bill.sharedByDisplayName && (
@@ -853,15 +890,15 @@ export default function BillsPage() {
                   ))}
                 </ul>
               ) : (
-                <div className="text-center py-8"><CheckCircle className="mx-auto h-12 w-12 text-accent" /><h3 className="mt-2 text-lg font-medium">Inga obetalda räkningar!</h3><p className="mt-1 text-sm text-muted-foreground">Bra jobbat!</p></div>
+                <div className="text-center py-8"><CheckCircle className="mx-auto h-12 w-12 text-accent" /><h3 className="mt-2 text-lg font-medium">Inga obetalda räkningar för {formattedSelectedMonth}!</h3><p className="mt-1 text-sm text-muted-foreground">Bra jobbat!</p></div>
               )}
             </CardContent>
           </Card>
           <Separator />
           <Card>
             <CardHeader>
-              <CardTitle>Betalda Räkningar</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">Historik över dina betalda räkningar.</CardDescription> 
+              <CardTitle>Betalda Räkningar ({formattedSelectedMonth})</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">Historik över dina betalda räkningar för {formattedSelectedMonth}.</CardDescription>
             </CardHeader>
             <CardContent>
               {paidBills.length > 0 ? (
@@ -872,7 +909,7 @@ export default function BillsPage() {
                         <Checkbox id={`bill-paid-${bill.id}`} checked={bill.paid} onCheckedChange={() => toggleBillPaidStatus(bill)} aria-label={`Markera ${bill.title} som ${bill.paid ? 'obetald' : 'betald'}`} disabled={!canEditActiveBoard || isLoadingPageData}/>
                         <div className="min-w-0">
                           <Label htmlFor={`bill-paid-${bill.id}`} className={`font-semibold cursor-pointer line-through text-muted-foreground truncate block ${!canEditActiveBoard ? 'cursor-default' : ''}`}>{bill.title}</Label>
-                          <p className="text-xs text-muted-foreground/80">Förfallodatum: {new Date(bill.dueDate).toLocaleDateString('sv-SE')} - {pageExpenseCategories.find(c=>c.id === bill.category)?.name || bill.category}</p>
+                          <p className="text-xs text-muted-foreground/80">Förfallodatum: {new Date(bill.dueDate + 'T00:00:00').toLocaleDateString('sv-SE')} - {pageExpenseCategories.find(c=>c.id === bill.category)?.name || bill.category}</p>
                           {bill.paidByDisplayName && <p className="text-xs text-muted-foreground/80">Betald av: {bill.paidByDisplayName}</p>}
                           {bill.createdByDisplayName && (<p className="text-xs mt-1 text-gray-500 dark:text-gray-400">Skapad av: {bill.createdByDisplayName}</p>)}
                           {bill.isSharedCopy && bill.sharedByDisplayName && (
@@ -893,7 +930,7 @@ export default function BillsPage() {
                     </li>
                   ))}
                 </ul>
-              ) : (<p className="text-sm text-muted-foreground">Inga betalda räkningar än.</p>)}
+              ) : (<p className="text-sm text-muted-foreground">Inga betalda räkningar för {formattedSelectedMonth}.</p>)}
             </CardContent>
           </Card>
         </>
@@ -904,7 +941,7 @@ export default function BillsPage() {
         if (!isOpen) {
           setBillTitle('');
           setBillAmount('');
-          setBillDueDate(new Date().toISOString().split('T')[0]);
+          setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd')); // Reset to current viewing month
           setBillNotes('');
           setBillReceiptImage(null);
           setCurrentBill(null);
@@ -939,7 +976,7 @@ export default function BillsPage() {
                     value={dialogTargetBoardId}
                     onValueChange={(value) => {
                       setDialogTargetBoardId(value);
-                      setBillCategory(''); 
+                      setBillCategory('');
                     }}
                     required
                     disabled={isParsingBill || isLoadingDialogCategories}
@@ -1082,7 +1119,7 @@ export default function BillsPage() {
         onOpenChange={(open) => {
           setIsShareBillDialogOpen(open);
           if (!open) {
-            setBillToShare(null); 
+            setBillToShare(null);
           }
         }}
         billToShare={billToShare}
@@ -1091,11 +1128,10 @@ export default function BillsPage() {
         currentUserUid={currentUser?.uid}
         currentUserDisplayName={currentUser?.displayName || currentUser?.email}
         onShareComplete={() => {
-          setBillToShare(null); 
+          setBillToShare(null);
         }}
       />
     </div>
   );
 }
 
-    
