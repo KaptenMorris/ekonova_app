@@ -60,7 +60,6 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null | undefined>(undefined);
   const [hasMounted, setHasMounted] = useState(false);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("Laddar applikation...");
 
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
@@ -73,14 +72,10 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
       try {
-        setLoadingMessage("Hämtar användardata...");
-        console.log(`[AuthContext] Attempting to GET user document: users/${user.uid}`);
         const userDocSnap = await getDoc(userDocRef);
-        console.log(`[AuthContext] GET users/${user.uid} - Exists: ${userDocSnap.exists()}`);
 
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
-          console.log(`[AuthContext] User data for users/${user.uid}:`, userData);
           const expiresAtTimestamp = userData.subscriptionExpiresAt as Timestamp | undefined;
           setSubscription({
             status: userData.subscriptionStatus || 'inactive',
@@ -116,18 +111,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
             if (Object.keys(firestoreUpdates).length > 0) {
               firestoreUpdates.updatedAt = serverTimestamp();
-              console.log(`[AuthContext] Attempting to UPDATE user document users/${user.uid} with:`, firestoreUpdates);
               await updateDoc(userDocRef, firestoreUpdates);
-              console.log(`[AuthContext] UPDATE users/${user.uid} successful.`);
             }
             if (authProfileNeedsUpdate && Object.keys(authProfileUpdatePayload).length > 0) {
-              console.log(`[AuthContext] Attempting to UPDATE Firebase Auth profile for UID ${user.uid} with:`, authProfileUpdatePayload);
               await updateProfile(authUserToUpdate, authProfileUpdatePayload);
-              console.log(`[AuthContext] UPDATE Firebase Auth profile for UID ${user.uid} successful.`);
             }
           }
         } else {
-          setLoadingMessage("Skapar användarprofil...");
           const initialDisplayName = user.displayName || '';
           const newUserDocData = {
             uid: user.uid,
@@ -142,9 +132,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             isAdmin: false,
             hasSeenWelcomeGuide: false, // Initialize for new user
           };
-          console.log(`[AuthContext] Attempting to SET user document users/${user.uid} with:`, newUserDocData);
           await setDoc(userDocRef, newUserDocData);
-          console.log(`[AuthContext] SET users/${user.uid} successful.`);
           setSubscription({ status: 'inactive', expiresAt: null });
           setMainBoardId(null);
           setBoardOrder(null);
@@ -174,11 +162,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     setHasMounted(true);
     
-    setLoadingMessage("Sätter upp autentiseringslyssnare...");
-    console.log("AuthProvider: Setting up onAuthStateChanged listener with directly imported auth instance.");
-    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("AuthProvider onAuthStateChanged: User state -", user ? `${user.uid} (${user.displayName || user.email})` : null);
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user);
@@ -189,7 +173,6 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setHasSeenWelcomeGuide(null);
       }
       setInitialAuthCheckDone(true);
-      setLoadingMessage("Autentisering klar.");
     }, (error) => {
         console.error("AuthProvider onAuthStateChanged error:", error);
         setCurrentUser(null);
@@ -198,57 +181,46 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setBoardOrder(null);
         setHasSeenWelcomeGuide(null);
         setInitialAuthCheckDone(true);
-        setLoadingMessage("Autentiseringsfel.");
     });
 
     return () => {
-      console.log("AuthProvider: Cleaning up onAuthStateChanged listener.");
       unsubscribe();
     };
   }, [fetchUserData]);
 
 
   const signUp = async (email: string, password: string, name: string) => {
-    setLoadingMessage("Registrerar konto...");
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName: name });
       // Firestore document creation, including hasSeenWelcomeGuide: false, is handled by fetchUserData
     }
-    setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
   };
 
   const logIn = async (email: string, password: string) => {
-    setLoadingMessage("Loggar in...");
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const logOut = async () => {
-    setLoadingMessage("Loggar ut...");
     await signOut(auth);
     setCurrentUser(null); // Explicitly set currentUser to null on logout
     setSubscription(null);
     setMainBoardId(null);
     setBoardOrder(null);
     setHasSeenWelcomeGuide(null);
-    router.push('/'); 
-    setLoadingMessage("Utloggad.");
+    router.push('/');
   };
 
   const sendPasswordReset = async (email: string) => {
-    console.log(`AuthContext: Attempting to send password reset for ${email} using imported auth. (HMR Test Comment V_DIRECT_AUTH_IMPORT)`);
     return sendPasswordResetEmail(auth, email);
   };
 
   const refreshUserData = useCallback(async () => {
     const currentAuthUser = auth.currentUser;
     if (currentAuthUser) {
-      setLoadingMessage("Uppdaterar användardata...");
       await fetchUserData(currentAuthUser);
-      setLoadingMessage("Användardata uppdaterad.");
     } else {
-      setLoadingMessage("Ingen användare inloggad för uppdatering.");
       await fetchUserData(null); // This will clear states if no user
     }
   }, [fetchUserData]);
@@ -267,9 +239,6 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   const loading = !hasMounted || !initialAuthCheckDone;
 
-  if (!hasMounted) {
-    return null; 
-  }
 
   const value = {
     currentUser,

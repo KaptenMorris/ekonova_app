@@ -44,29 +44,22 @@ let db: Firestore;
 let storage: FirebaseStorage;
 let analytics: Analytics | undefined;
 
-console.log(`Firebase module (src/lib/firebase.ts) evaluating... (HMR Check - Direct Init - ${new Date().toISOString()})`);
 
 try {
   if (getApps().length === 0) {
     app = initializeApp(firebaseConfig);
-    console.log("src/lib/firebase.ts: Firebase app initialized.");
   } else {
     app = getApp();
-    console.log("src/lib/firebase.ts: Existing Firebase app retrieved.");
   }
 
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
-  console.log("src/lib/firebase.ts: Core Firebase services (Auth, Firestore, Storage) initialized.");
 
   if (typeof window !== 'undefined') {
     isSupported().then((supported) => {
       if (supported && firebaseConfig.measurementId) {
         analytics = getAnalytics(app);
-        console.log("src/lib/firebase.ts: Firebase Analytics initialized.");
-      } else {
-        console.log("src/lib/firebase.ts: Firebase Analytics not supported or no measurementId.");
       }
     }).catch(error => {
       console.error("src/lib/firebase.ts: Error initializing Firebase Analytics", error);
