@@ -83,6 +83,7 @@ export default function OverviewPage() {
   const { currentUser, subscription, loading: authLoading, mainBoardId } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const savingsGoalsCardRef = useRef<HTMLDivElement>(null);
 
   const [boards, setBoards] = useState<Board[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<string | undefined>(undefined);
@@ -508,6 +509,11 @@ export default function OverviewPage() {
       setAddFundsDialogError("Ett fel uppstod när insättningen skulle sparas.");
     }
   };
+  
+  const scrollToSavingsGoals = () => {
+    savingsGoalsCardRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
 
   if (authLoading && !currentUser) { return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> Laddar användardata...</div>; }
   if (!currentUser && !authLoading) { return <div className="text-center p-8">Vänligen logga in för att se din ekonomiska översikt.</div> }
@@ -569,6 +575,41 @@ export default function OverviewPage() {
                 <span>Resultat som överförs till nästkommande månad:</span> 
                 <span className="font-medium">{netBalanceForCarryOver.toLocaleString('sv-SE')} kr</span>
               </div>
+               {rolloverFromPreviousMonth > 0 && (
+                <Alert className="mt-4">
+                  <PiggyBank className="h-5 w-5" />
+                  <AlertTitle className="font-semibold">Spartips: Ge ditt sparande en extra skjuts!</AlertTitle>
+                  <ShadAlertDescriptionComponent>
+                    <p className="mb-2">
+                      Fantastiskt! Du har{" "}
+                      <strong className="text-accent">
+                        {rolloverFromPreviousMonth.toLocaleString('sv-SE')} kr
+                      </strong>{" "}
+                      som rullat över från förra månaden.
+                    </p>
+                    <p className="mb-1">
+                      Varför inte använda en del av detta till att aktivt jobba mot dina ekonomiska mål? Det kan vara för:
+                    </p>
+                    <ul className="list-disc pl-5 mb-3 text-sm space-y-0.5">
+                      <li>🏖️ **Drömresan:** Kom närmare din nästa semester.</li>
+                      <li>💻 **Ny Teknik:** Spara till den där prylen du sneglat på.</li>
+                      <li>🛡️ **Buffert:** Stärk din ekonomiska trygghet.</li>
+                      <li>🏠 **Bostad:** En kontantinsats eller renovering.</li>
+                    </ul>
+                    <p className="mb-3">
+                      Använd dina sparmål nedan för att fördela summan, eller skapa ett nytt!
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={scrollToSavingsGoals}
+                      className="w-full sm:w-auto"
+                    >
+                      Visa/Hantera Sparmål
+                    </Button>
+                  </ShadAlertDescriptionComponent>
+                </Alert>
+              )}
             </CardContent>
              <CardFooter className="p-4 pt-0 sm:p-6 sm:pt-0">
                 <Alert variant="default" className="text-xs">
@@ -619,7 +660,7 @@ export default function OverviewPage() {
           </Card>
         </div>
 
-        <Card className="col-span-1 sm:col-span-2 lg:col-span-3">
+        <Card className="col-span-1 sm:col-span-2 lg:col-span-3" ref={savingsGoalsCardRef}>
             <CardHeader className="p-4 sm:p-6 flex flex-row items-center justify-between">
                 <div><CardTitle className="text-xl md:text-2xl">Sparmål</CardTitle><CardDescription>Hantera och följ dina sparmål för {boards.find(b => b.id === selectedBoardId)?.name || ""}.</CardDescription></div>
                 {canEditActiveBoard && (
