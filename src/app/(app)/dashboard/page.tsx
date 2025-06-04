@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import {
-  PlusCircle, Edit3, Trash2, MoreHorizontal, Home, Car, ShoppingCart, Clapperboard, Tag, Briefcase, HandCoins, Shapes, Zap, Wifi, Shield, Gift, PiggyBank, CreditCard, DollarSign, Receipt, Utensils, Plane, Palette, BookOpen, Heart, ShoppingBag, Shirt, Bike, Bus, Train, Fuel as FuelIcon, Camera, Music, Film, Gamepad2, Dog, Cat, PawPrint, GraduationCap, Landmark, Wrench, Phone, Computer, Loader2, Activity, Anchor, Award, Banknote, Bitcoin, Bone, Bookmark, Brain, Calculator, CalendarDays, Candy, Castle, CheckCheck, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Church, CircleDollarSign, ClipboardList, Clock, Cloud, Code, Coffee, Coins, Compass, Contact, CookingPot, Crop, Crown, CupSoda, DoorOpen, Download, Drama, Dribbble, Droplet, Drumstick, Dumbbell, Ear, Egg, FileText, Fish, Flag, Flame, Flashlight, FlaskConical, Flower, Footprints, Gauge, Gem, Globe, Grape, Grid, Hammer, Headphones, HelpCircle, IceCream, Image, IndianRupee, Infinity, Key, Laptop, Laugh, Layers, Leaf, Library, LifeBuoy, Lightbulb, Link, List, Lock, LogIn, LogOut, Mail, Map as MapIcon, MapPin, Martini, Medal, Megaphone, Menu, Mic, Minus, Monitor, Moon, MousePointer, Move, Navigation, Newspaper, Nut, Option, Package, PaintBucket, Paperclip, ParkingCircle, PenTool, Pencil, Percent, PersonStanding, PictureInPicture, Pin, Pizza, Play, Plug, Pocket, Podcast, Power, Printer, Puzzle, Quote, Recycle, RefreshCcw, Reply, Rocket, RotateCcw, Rss, Ruler, Save, Scale, ScanLine, School, Scissors, ScreenShare, Search, Send, Settings, Share2, Siren, Slice, Smartphone, Smile, Speaker, Star, Store, Sun, Sunrise, Sunset, Table, Tablet, Target, Tent, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, Trash, TrendingUp, Trophy, Truck, Tv, Umbrella, Upload, User, Verified, Video, Volume2, Wallet, Watch, Waves, Wind, Wine, Youtube, ZoomIn, UserPlus, ArrowUp, ArrowDown, Copy } from 'lucide-react';
+  PlusCircle, Edit3, Trash2, MoreHorizontal, Home, Car, ShoppingCart, Clapperboard, Tag, Briefcase, HandCoins, Shapes, Zap, Wifi, Shield, Gift, PiggyBank, CreditCard, DollarSign, Receipt, Utensils, Plane, Palette, BookOpen, Heart, ShoppingBag, Shirt, Bike, Bus, Train, Fuel as FuelIcon, Camera, Music, Film, Gamepad2, Dog, Cat, PawPrint, GraduationCap, Landmark, Wrench, Phone, Computer, Loader2, Activity, Anchor, Award, Banknote, Bitcoin, Bone, Bookmark, Brain, Calculator, CalendarDays, Candy, Castle, CheckCheck, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Church, CircleDollarSign, ClipboardList, Clock, Cloud, Code, Coffee, Coins, Compass, Contact, CookingPot, Crop, Crown, CupSoda, DoorOpen, Download, Drama, Dribbble, Droplet, Drumstick, Dumbbell, Ear, Egg, FileText, Fish, Flag, Flame, Flashlight, FlaskConical, Flower, Footprints, Gauge, Gem, Globe, Grape, Grid, Hammer, Headphones, HelpCircle, IceCream, Image, IndianRupee, Infinity, Key, Laptop, Laugh, Layers, Leaf, Library, LifeBuoy, Lightbulb, Link, List, Lock, LogIn, LogOut, Mail, Map as MapIcon, MapPin, Martini, Medal, Megaphone, Menu, Mic, Minus, Monitor, Moon, MousePointer, Move, Navigation, Newspaper, Nut, Option, Package, PaintBucket, Paperclip, ParkingCircle, PenTool, Pencil, Percent, PersonStanding, PictureInPicture, Pin, Pizza, Play, Plug, Pocket, Podcast, Power, Printer, Puzzle, Quote, Recycle, RefreshCcw, Reply, Rocket, RotateCcw, Rss, Ruler, Save, Scale, ScanLine, School, Scissors, ScreenShare, Search, Send, Settings, Share2, Siren, Slice, Smartphone, Smile, Speaker, Star, Store, Sun, Sunrise, Sunset, Table, Tablet, Target, Tent, ThumbsDown, ThumbsUp, Ticket, Timer, ToggleLeft, Trash, TrendingUp, Trophy, Truck, Tv, Umbrella, Upload, User, Verified, Video, Volume2, Wallet, Watch, Waves, Wind, Wine, Youtube, ZoomIn, UserPlus, Copy } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
@@ -1201,18 +1201,16 @@ export default function DashboardPage() {
                   {categories.filter(cat => cat.type === 'income').length > 0 ? (
                     <ScrollArea className="h-[150px] md:h-auto pr-2">
                       <ul className="space-y-2">
-                        {Object.entries(categoryTotals)
-                          .filter(([, data]) => data.type === 'income')
-                          .sort(([, a], [, b]) => b.total - a.total)
-                          .map(([catId, data]) => {
-                            const category = categories.find(c => c.id === catId);
+                        {categories.filter(cat => cat.type === 'income').map(category => {
+                            const categoryTotalData = categoryTotals[category.id];
+                            const total = categoryTotalData ? categoryTotalData.total : 0;
                             return (
-                              <li key={catId} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30">
+                              <li key={category.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30">
                                 <div className="flex items-center">
-                                  {getCategoryIcon(category?.name || '', 'income', category?.iconName)}
-                                  <span className="font-medium">{category?.name || 'Okänd Kategori'}</span>
+                                  {getCategoryIcon(category.name, 'income', category.iconName)}
+                                  <span className="font-medium">{category.name}</span>
                                 </div>
-                                <span className="font-semibold text-accent">{data.total.toLocaleString('sv-SE')} kr</span>
+                                <span className="font-semibold text-accent">{total.toLocaleString('sv-SE')} kr</span>
                               </li>
                             );
                         })}
@@ -1227,18 +1225,16 @@ export default function DashboardPage() {
                    {categories.filter(cat => cat.type === 'expense').length > 0 ? (
                     <ScrollArea className="h-[150px] md:h-auto pr-2">
                       <ul className="space-y-2">
-                        {Object.entries(categoryTotals)
-                          .filter(([, data]) => data.type === 'expense')
-                           .sort(([, a], [, b]) => b.total - a.total)
-                          .map(([catId, data]) => {
-                            const category = categories.find(c => c.id === catId);
+                        {categories.filter(cat => cat.type === 'expense').map(category => {
+                            const categoryTotalData = categoryTotals[category.id];
+                            const total = categoryTotalData ? categoryTotalData.total : 0;
                             return (
-                              <li key={catId} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30">
+                              <li key={category.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30">
                                 <div className="flex items-center">
-                                  {getCategoryIcon(category?.name || '', 'expense', category?.iconName)}
-                                  <span className="font-medium">{category?.name || 'Okänd Kategori'}</span>
+                                  {getCategoryIcon(category.name, 'expense', category.iconName)}
+                                  <span className="font-medium">{category.name}</span>
                                 </div>
-                                <span className="font-semibold text-destructive">{data.total.toLocaleString('sv-SE')} kr</span>
+                                <span className="font-semibold text-destructive">{total.toLocaleString('sv-SE')} kr</span>
                               </li>
                             );
                         })}
