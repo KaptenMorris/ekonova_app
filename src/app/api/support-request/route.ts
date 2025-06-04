@@ -1,6 +1,7 @@
 
 // src/app/api/support-request/route.ts
 import type { NextRequest } from 'next/server';
+import nodemailer from 'nodemailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,64 +12,89 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Missing required fields.' }, { status: 400 });
     }
 
-    // Log the received data (simulating processing)
-    console.log('Received support request:');
-    console.log('Issue Type:', issueType);
-    console.log('User Email:', userEmail);
-    console.log('Message:', message);
+    // --- Nodemailer Configuration ---
+    // IMPORTANT: These values MUST be set in your environment variables.
+    // Do NOT hardcode credentials here.
+    const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS } = process.env;
 
-    // Simulate a delay for email sending
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
+      console.error('SMTP environment variables are not configured.');
+      return Response.json({ error: 'Server configuration error for email sending.' }, { status: 500 });
+    }
+    
+    const portNumber = parseInt(SMTP_PORT, 10);
+    if (isNaN(portNumber)) {
+      console.error('Invalid SMTP_PORT configured.');
+      return Response.json({ error: 'Server configuration error: Invalid SMTP port.' }, { status: 500 });
+    }
 
-    // **
-    // ** TODO: Implement actual email sending logic here. **
-    // **
-    // You'll need an email sending service (e.g., SendGrid, Mailgun, Resend)
-    // and a library like Nodemailer. This requires server-side setup and credentials.
-    //
-    // Example using Nodemailer (conceptual - requires setup and credentials):
-    //
-    // import nodemailer from 'nodemailer';
-    //
-    // const transporter = nodemailer.createTransport({
-    //   host: process.env.SMTP_HOST, // Store in .env.local
-    //   port: parseInt(process.env.SMTP_PORT || "587"),
-    //   secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-    //   auth: {
-    //     user: process.env.SMTP_USER, // Your email sending address
-    //     pass: process.env.SMTP_PASS, // Your email password or app-specific password
-    //   },
-    // });
-    //
-    // try {
-    //   const mailOptions = {
-    //     from: `"Ekonova Support" <${process.env.SMTP_USER}>`, // Sender address
-    //     to: 'info@marius-christensen.se', // Your target email
-    //     replyTo: userEmail, // User's email for easy reply
-    //     subject: `Support Request [${issueType.toUpperCase()}]: Ekonova App`,
-    //     text: `From: ${userEmail}\n\nIssue Type: ${issueType}\n\nMessage:\n${message}`,
-    //     html: `
-    //       <h2>Support Request - Ekonova</h2>
-    //       <p><strong>From:</strong> ${userEmail}</p>
-    //       <p><strong>Issue Type:</strong> ${issueType}</p>
-    //       <hr>
-    //       <p><strong>Message:</strong></p>
-    //       <p style="white-space: pre-wrap;">${message}</p>
-    //     `,
-    //   };
-    //   await transporter.sendMail(mailOptions);
-    //   console.log('Email sent successfully (simulated for now)');
-    //   return Response.json({ message: 'Ditt supportärende har skickats! Vi kontaktar dig så snart som möjligt.' });
-    //
-    // } catch (emailError) {
-    //   console.error('Failed to send email:', emailError);
-    //   return Response.json({ error: 'Kunde inte skicka supportärendet på grund av ett serverfel.' }, { status: 500 });
-    // }
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: portNumber,
+      secure: SMTP_SECURE === 'true', // true for 465, false for other ports (like 587 for TLS)
+      auth: {
+        user: SMTP_USER, // Your email sending address (e.g., no-reply@yourdomain.com or your actual email)
+        pass: SMTP_PASS, // Your email password or app-specific password
+      },
+      // Optional: Add TLS options if needed by your provider, e.g., for self-signed certs (not common)
+      // tls: {
+      //   rejectUnauthorized: false // Use only for testing with self-signed certs, NOT recommended for production
+      // }
+    });
 
-    // For now, just return a success message assuming the email "would have been sent"
-    return Response.json({ message: 'Ditt supportärende har tagits emot och kommer att behandlas. (E-postutskick simulerat)' });
+    // --- Email Content ---
+    const targetEmail = 'info@marius-christensen.se'; // Your target email address
+    const subjectPrefix = issueType.charAt(0).toUpperCase() + issueType.slice(1);
+    const subject = `Supportärende Ekonova: [${subjectPrefix}]`;
 
-  } catch (error) {
+    const textContent = `
+      Nytt supportärende från Ekonova-appen:
+      ------------------------------------
+      Användarens E-post (för svar): ${userEmail}
+      Ärendetyp: ${issueType}
+      ------------------------------------
+      Meddelande:
+      ${message}
+      ------------------------------------
+      UID: (Användare kan lägga till detta manuellt om de önskar)
+    `;
+
+    const htmlContent = `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2>Nytt Supportärende - Ekonova</h2>
+          <p><strong>Användarens E-post (för svar):</strong> <a href="mailto:${userEmail}">${userEmail}</a></p>
+          <p><strong>Ärendetyp:</strong> ${issueType}</p>
+          <hr>
+          <p><strong>Meddelande:</strong></p>
+          <div style="padding: 10px; border: 1px solid #eee; background-color: #f9f9f9; white-space: pre-wrap;">${message.replace(/\n/g, '<br>')}</div>
+          <hr>
+          <p style="font-size: 0.9em; color: #555;"><em>Detta meddelande skickades från supportformuläret i Ekonova-appen.</em></p>
+        </body>
+      </html>
+    `;
+
+    // --- Send Email ---
+    try {
+      await transporter.sendMail({
+        from: `"Ekonova Support" <${SMTP_USER}>`, // Sender address (must match authenticated user or be allowed by provider)
+        to: targetEmail,
+        replyTo: userEmail, // So you can directly reply to the user
+        subject: subject,
+        text: textContent,
+        html: htmlContent,
+      });
+      console.log(`Support email sent successfully to ${targetEmail} from ${SMTP_USER}`);
+      return Response.json({ message: 'Ditt supportärende har skickats! Vi kontaktar dig så snart som möjligt.' });
+    } catch (emailError: any) {
+      console.error('Failed to send email:', emailError);
+      // Log more details from the error if available
+      if (emailError.responseCode) console.error('SMTP Response Code:', emailError.responseCode);
+      if (emailError.response) console.error('SMTP Response:', emailError.response);
+      return Response.json({ error: 'Kunde inte skicka supportärendet på grund av ett serverfel vid e-postutskick.' }, { status: 500 });
+    }
+
+  } catch (error: any) {
     console.error('Error processing support request:', error);
     return Response.json({ error: 'Ett oväntat serverfel inträffade.' }, { status: 500 });
   }
