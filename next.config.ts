@@ -2,7 +2,6 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true, 
   images: {
     remotePatterns: [
       {
@@ -13,7 +12,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {}, // Added empty experimental block
 };
 
 export default nextConfig;

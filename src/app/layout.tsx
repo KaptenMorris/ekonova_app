@@ -5,11 +5,9 @@ import React from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from "@/components/ui/toaster";
-// import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
+import { AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
-
-// console.log('RootLayout rendering - Font test nudge v2');
 
 export default function RootLayout({
   children,
@@ -25,7 +23,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <title>Ekonova</title>
       </head>
-      <body className="antialiased">
+      <body className={`${inter.className} antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -33,14 +31,13 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {/* <AppVersionInfoProvider> */}
+            <AppVersionInfoProvider>
               {children}
               <Toaster />
-            {/* </AppVersionInfoProvider> */}
+            </AppVersionInfoProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
-
