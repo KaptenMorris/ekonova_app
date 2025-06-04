@@ -217,7 +217,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const logOut = async () => {
     setLoadingMessage("Loggar ut...");
     await signOut(auth);
-    router.push('/logga-in'); 
+    router.push('/'); // Changed from /logga-in
     setLoadingMessage("Utloggad.");
   };
 
@@ -244,13 +244,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     return null; 
   }
 
-  if (loading) {
-     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <p className="ml-2">{loadingMessage || "Initierar applikation..."}</p>
-      </div>
-    );
-  }
+  // Removed the global loading screen from AuthProvider itself
+  // if (loading) {
+  //    return (
+  //     <div className="flex h-screen w-full items-center justify-center bg-background">
+  //       <p className="ml-2">{loadingMessage || "Initierar applikation..."}</p>
+  //     </div>
+  //   );
+  // }
 
   const value = {
     currentUser,
