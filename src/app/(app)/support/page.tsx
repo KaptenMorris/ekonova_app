@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Info } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function SupportPage() {
   const { currentUser, loading: authLoading } = useAuth();
@@ -26,17 +28,35 @@ export default function SupportPage() {
     const emailTo = "info@marius-christensen.se";
     const subjectLine = "Återkoppling för Ekonova";
 
-    let emailBody = `Hej,
+    let emailBody = `Hej Ekonova Team,
 
-Jag hoppas att detta meddelande når dig väl.
+Jag kontaktar er angående Ekonova-appen.
 
-Har du hittat en bugg? : 
+----------------------------------------
+ÄRENDETYP: (Vänligen specificera: t.ex. Bugg, Förslag, Fråga, Allmän feedback)
+----------------------------------------
+*   
 
-Har du synpunkter? : 
 
-Har du förslag på förbättringar för Ekonova? : 
+----------------------------------------
+BESKRIVNING AV DITT ÄRENDE:
+----------------------------------------
+*   
+   (Om det är en bugg, inkludera gärna:
+    - Vad du försökte göra.
+    - Vad som hände.
+    - Vad du förväntade dig skulle hända.
+    - Eventuella felmeddelanden.
+    - Steg för att återskapa problemet, om möjligt.)
 
-Uppskattar att du tar dig tid att hjälpa till att förbättra Ekonova :)
+
+----------------------------------------
+EV. YTTERLIGARE INFORMATION SOM KAN VARA TILL HJÄLP:
+----------------------------------------
+*   
+
+
+Tack för att ni hjälper till att göra Ekonova bättre!
 `;
 
     let userContactInfo = "";
@@ -47,12 +67,12 @@ Uppskattar att du tar dig tid att hjälpa till att förbättra Ekonova :)
     }
 
     if (userContactInfo) {
-      emailBody += `\n\n--------------------\nAvsändare: ${userContactInfo}\n--------------------\n`;
+      emailBody += `\n\n--------------------\nFrån Ekonova-användare: ${userContactInfo}\nAnvändar-ID (om känt och relevant): [Fyll i ditt UID från Kontoinställningar om det hjälper]\n--------------------\n`;
     } else {
-      emailBody += `\n\n--------------------\nAvsändare: [Vänligen fyll i din e-postadress här]\n--------------------\n`;
+      emailBody += `\n\n--------------------\nFrån Ekonova-användare: [Vänligen fyll i din e-postadress här för svar]\nAnvändar-ID (om känt och relevant): [Fyll i ditt UID från Kontoinställningar om det hjälper]\n--------------------\n`;
     }
     
-    emailBody += `\nMed vänliga hälsningar,\nMarius`;
+    emailBody += `\nMed vänliga hälsningar,\nTeamet bakom Ekonova`;
 
     const mailtoLink = `mailto:${emailTo}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(emailBody)}`;
     window.location.href = mailtoLink;
@@ -68,36 +88,60 @@ Uppskattar att du tar dig tid att hjälpa till att förbättra Ekonova :)
         <CardHeader>
           <CardTitle className="text-2xl md:text-3xl">Support & Felanmälan</CardTitle>
           <CardDescription>
-            Har du frågor, hittat en bugg, eller har du förslag på förbättringar? Skicka ett mail till oss!
+            Har du frågor, hittat en bugg, eller har du förslag på förbättringar? Skicka ett mail till oss! Ditt ärende öppnas i din vanliga e-postklient.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="email">Din E-post (för referens i mailet)</Label>
-              <Input
-                id="email"
-                type="email"
-                value={inputEmail}
-                placeholder="din.email@example.com"
-                disabled={!!currentUser?.email} 
-                readOnly={!!currentUser?.email} 
-                onChange={e => {
-                  if (!currentUser) {
-                    setInputEmail(e.target.value);
-                  }
-                }}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {currentUser?.email ? "Detta är din registrerade e-postadress." : "Ange din e-postadress."}
-              </p>
-            </div>
-            <Button onClick={handleOpenMailClient} className="w-full">
-              <Send className="mr-2 h-4 w-4" />
-              Skicka Ärende via E-post
-            </Button>
+        <CardContent className="space-y-6">
+          <div>
+            <Label htmlFor="email">Din E-post (förifylls i mailet som referens)</Label>
+            <Input
+              id="email"
+              type="email"
+              value={inputEmail}
+              placeholder="din.email@example.com"
+              disabled={!!currentUser?.email} 
+              readOnly={!!currentUser?.email} 
+              onChange={e => {
+                if (!currentUser) {
+                  setInputEmail(e.target.value);
+                }
+              }}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {currentUser?.email ? "Detta är din registrerade e-postadress." : "Ange din e-postadress."}
+            </p>
           </div>
-          <p className="text-xl text-muted-foreground mt-6 text-center">
+
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="subject-tips">
+              <AccordionTrigger className="text-sm font-semibold">Tips för en bra ämnesrad (Rubrik)</AccordionTrigger>
+              <AccordionContent className="text-sm">
+                <Alert variant="default" className="mb-3">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle className="text-sm">Standardämne</AlertTitle>
+                  <AlertDescription>
+                    När du klickar på knappen nedan kommer ämnet "Återkoppling för Ekonova" att förifyllas. Du kan ändra det i din e-postklient om du vill vara mer specifik.
+                  </AlertDescription>
+                </Alert>
+                <p className="mb-2">För att hjälpa oss hantera ditt ärende snabbare, överväg en mer specifik ämnesrad:</p>
+                <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                  <li><strong>Allmänt:</strong> "Feedback angående Ekonova-appen", "Fråga om Ekonova"</li>
+                  <li><strong>Buggrapport:</strong> "Buggrapport: [Kort beskrivning av buggen] - Ekonova" (t.ex. "Buggrapport: Kan inte spara transaktion - Ekonova")</li>
+                  <li><strong>Problem:</strong> "Problem med [Funktionens namn] i Ekonova" (t.ex. "Problem med Räkningar i Ekonova")</li>
+                  <li><strong>Förslag:</strong> "Förslag till Ekonova: [Kort om förslaget]" (t.ex. "Förslag till Ekonova: Månadsrapporter")</li>
+                  <li><strong>Synpunkt:</strong> "Synpunkter på Ekonova", "Tankar kring Ekonova-appen"</li>
+                </ul>
+                <p className="mt-3"><strong>Kom ihåg:</strong> Var specifik, håll det kort och inkludera "Ekonova"!</p>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          <Button onClick={handleOpenMailClient} className="w-full" size="lg">
+            <Send className="mr-2 h-4 w-4" />
+            Öppna E-postklient för att Skicka Ärende
+          </Button>
+
+          <p className="text-sm text-muted-foreground mt-6 text-center">
             För direktkontakt via e-post, använd <a href={`mailto:info@marius-christensen.se`} className="underline hover:text-primary">info@marius-christensen.se</a>.
           </p>
         </CardContent>
@@ -105,3 +149,4 @@ Uppskattar att du tar dig tid att hjälpa till att förbättra Ekonova :)
     </div>
   );
 }
+
