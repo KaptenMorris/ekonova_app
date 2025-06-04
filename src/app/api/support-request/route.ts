@@ -8,42 +8,44 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { issueType, userEmail, message } = body;
 
+    console.log("Received support request API call. Body:", body);
+
     if (!issueType || !userEmail || !message) {
+      console.error("API Error: Missing required fields in support request.", body);
       return Response.json({ error: 'Missing required fields.' }, { status: 400 });
     }
 
     // --- Nodemailer Configuration ---
-    // IMPORTANT: These values MUST be set in your environment variables.
-    // Do NOT hardcode credentials here.
     const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS } = process.env;
 
     if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS) {
-      console.error('SMTP environment variables are not configured.');
-      return Response.json({ error: 'Server configuration error for email sending.' }, { status: 500 });
+      console.error('API Error: SMTP environment variables are not configured.');
+      return Response.json({ error: 'Server configuration error for email sending. SMTP variables missing.' }, { status: 500 });
     }
     
     const portNumber = parseInt(SMTP_PORT, 10);
     if (isNaN(portNumber)) {
-      console.error('Invalid SMTP_PORT configured.');
+      console.error('API Error: Invalid SMTP_PORT configured. Must be a number.');
       return Response.json({ error: 'Server configuration error: Invalid SMTP port.' }, { status: 500 });
     }
 
+    console.log("Attempting to create nodemailer transporter...");
     const transporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: portNumber,
-      secure: SMTP_SECURE === 'true', // true for 465, false for other ports (like 587 for TLS)
+      secure: SMTP_SECURE === 'true', 
       auth: {
-        user: SMTP_USER, // Your email sending address (e.g., no-reply@yourdomain.com or your actual email)
-        pass: SMTP_PASS, // Your email password or app-specific password
+        user: SMTP_USER,
+        pass: SMTP_PASS,
       },
-      // Optional: Add TLS options if needed by your provider, e.g., for self-signed certs (not common)
-      // tls: {
-      //   rejectUnauthorized: false // Use only for testing with self-signed certs, NOT recommended for production
-      // }
+      // Debugging options for nodemailer (optional, can be noisy)
+      // logger: true, 
+      // debug: true, 
     });
+    console.log("Nodemailer transporter created.");
 
     // --- Email Content ---
-    const targetEmail = 'info@marius-christensen.se'; // Your target email address
+    const targetEmail = 'info@marius-christensen.se';
     const subjectPrefix = issueType.charAt(0).toUpperCase() + issueType.slice(1);
     const subject = `Supportärende Ekonova: [${subjectPrefix}]`;
 
@@ -56,7 +58,6 @@ export async function POST(request: NextRequest) {
       Meddelande:
       ${message}
       ------------------------------------
-      UID: (Användare kan lägga till detta manuellt om de önskar)
     `;
 
     const htmlContent = `
@@ -76,26 +77,27 @@ export async function POST(request: NextRequest) {
 
     // --- Send Email ---
     try {
-      await transporter.sendMail({
-        from: `"Ekonova Support" <${SMTP_USER}>`, // Sender address (must match authenticated user or be allowed by provider)
+      console.log(`Preparing to send email to ${targetEmail} from ${SMTP_USER} via ${SMTP_HOST}:${SMTP_PORT}...`);
+      const mailInfo = await transporter.sendMail({
+        from: `"Ekonova Support" <${SMTP_USER}>`,
         to: targetEmail,
-        replyTo: userEmail, // So you can directly reply to the user
+        replyTo: userEmail,
         subject: subject,
         text: textContent,
         html: htmlContent,
       });
-      console.log(`Support email sent successfully to ${targetEmail} from ${SMTP_USER}`);
+      console.log("Email send attempt finished. Nodemailer response:", mailInfo);
+      console.log(`Support email potentially sent successfully. Message ID: ${mailInfo.messageId}`);
       return Response.json({ message: 'Ditt supportärende har skickats! Vi kontaktar dig så snart som möjligt.' });
     } catch (emailError: any) {
-      console.error('Failed to send email:', emailError);
-      // Log more details from the error if available
+      console.error('NODEMAILER_SEND_ERROR: Failed to send email.', emailError);
       if (emailError.responseCode) console.error('SMTP Response Code:', emailError.responseCode);
       if (emailError.response) console.error('SMTP Response:', emailError.response);
-      return Response.json({ error: 'Kunde inte skicka supportärendet på grund av ett serverfel vid e-postutskick.' }, { status: 500 });
+      return Response.json({ error: `Kunde inte skicka supportärendet på grund av ett serverfel vid e-postutskick. Felkod: ${emailError.code || 'Okänd'}` }, { status: 500 });
     }
 
   } catch (error: any) {
-    console.error('Error processing support request:', error);
-    return Response.json({ error: 'Ett oväntat serverfel inträffade.' }, { status: 500 });
+    console.error('GENERAL_API_ERROR: Error processing support request.', error);
+    return Response.json({ error: `Ett oväntat serverfel inträffade: ${error.message || 'Okänt fel'}` }, { status: 500 });
   }
 }
