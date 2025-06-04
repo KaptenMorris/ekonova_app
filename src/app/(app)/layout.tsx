@@ -4,7 +4,7 @@
 import type { FC, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react'; // Added useState
 import type { User } from 'firebase/auth';
 import {
   Coins,
@@ -41,7 +41,8 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import WhatsNewDialog from '@/components/shared/whats-new-dialog';
-import { useAppVersionInfo, AppVersionInfoProvider } from '@/contexts/AppVersionContext'; // Added AppVersionInfoProvider import
+import WelcomeGuideDialog from '@/components/shared/welcome-guide-dialog'; // Import WelcomeGuideDialog
+import { useAppVersionInfo, AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -71,9 +72,12 @@ const AppLayoutInner: FC<{
   logOut: () => void;
   pathname: string;
   children: ReactNode;
-}> = ({ currentUser, logOut, pathname, children }) => {
+  hasSeenWelcomeGuide: boolean | null;
+  markWelcomeGuideAsSeen: () => Promise<void>;
+}> = ({ currentUser, logOut, pathname, children, hasSeenWelcomeGuide, markWelcomeGuideAsSeen }) => {
   const { isMobile, setOpenMobile } = useSidebar();
   const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo(); 
+  const [displayWelcomeDialog, setDisplayWelcomeDialog] = useState(false);
 
   const userDisplayName = currentUser.displayName || currentUser.email || 'Användare';
   const userEmail = currentUser.email || 'Ingen e-post';
@@ -90,6 +94,18 @@ const AppLayoutInner: FC<{
       document.title = pageTitle;
     }
   }, [pageTitle]);
+
+  useEffect(() => {
+    // Show welcome guide if user exists, guide hasn't been seen, and we're not already showing it
+    if (currentUser && hasSeenWelcomeGuide === false && !displayWelcomeDialog) {
+      setDisplayWelcomeDialog(true);
+    }
+  }, [currentUser, hasSeenWelcomeGuide, displayWelcomeDialog]);
+
+  const handleCloseWelcomeDialog = async () => {
+    setDisplayWelcomeDialog(false);
+    await markWelcomeGuideAsSeen();
+  };
 
 
   return (
@@ -169,6 +185,10 @@ const AppLayoutInner: FC<{
           versionInfo={latestVersionInfo}
         />
       )}
+      <WelcomeGuideDialog 
+        isOpen={displayWelcomeDialog}
+        onClose={handleCloseWelcomeDialog}
+      />
     </>
   );
 };
@@ -177,11 +197,11 @@ const AppLayoutInner: FC<{
 const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, loading, logOut } = useAuth(); 
+  const { currentUser, loading, logOut, hasSeenWelcomeGuide, markWelcomeGuideAsSeen } = useAuth(); 
 
   useEffect(() => {
     if (!loading && !currentUser) {
-      router.replace('/'); // Changed from '/logga-in' to '/'
+      router.replace('/'); 
     }
   }, [currentUser, loading, router]);
 
@@ -192,7 +212,7 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   }, []);
 
 
-  if (loading || !currentUser) {
+  if (loading || !currentUser) { // Keep loading until currentUser is definitely available or loading is false
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -201,12 +221,14 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   }
 
   return (
-    <AppVersionInfoProvider> {/* Moved AppVersionInfoProvider here */}
+    <AppVersionInfoProvider>
       <SidebarProvider defaultOpen collapsible="icon">
         <AppLayoutInner
           currentUser={currentUser}
           logOut={logOut}
           pathname={pathname}
+          hasSeenWelcomeGuide={hasSeenWelcomeGuide}
+          markWelcomeGuideAsSeen={markWelcomeGuideAsSeen}
         >
           {children}
         </AppLayoutInner>

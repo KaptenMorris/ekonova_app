@@ -33,11 +33,13 @@ interface AuthContextType {
   subscription: SubscriptionInfo | null;
   mainBoardId: string | null;
   boardOrder: string[] | null;
+  hasSeenWelcomeGuide: boolean | null;
   signUp: (email: string, password: string, name: string) => Promise<any>;
   logIn: (email: string, password: string) => Promise<any>;
   logOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   refreshUserData: () => Promise<void>;
+  markWelcomeGuideAsSeen: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,6 +65,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [mainBoardId, setMainBoardId] = useState<string | null>(null);
   const [boardOrder, setBoardOrder] = useState<string[] | null>(null);
+  const [hasSeenWelcomeGuide, setHasSeenWelcomeGuide] = useState<boolean | null>(null);
 
   const router = useRouter();
 
@@ -85,6 +88,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           });
           setMainBoardId(userData.mainBoardId || null);
           setBoardOrder(userData.boardOrder || null);
+          setHasSeenWelcomeGuide(userData.hasSeenWelcomeGuide === true); // Default to false if undefined
 
           const authUserToUpdate = auth.currentUser;
           if (authUserToUpdate) {
@@ -135,7 +139,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             subscriptionExpiresAt: null,
             mainBoardId: null,
             boardOrder: [],
-            isAdmin: false, // Default isAdmin to false
+            isAdmin: false,
+            hasSeenWelcomeGuide: false, // Initialize for new user
           };
           console.log(`[AuthContext] Attempting to SET user document users/${user.uid} with:`, newUserDocData);
           await setDoc(userDocRef, newUserDocData);
@@ -143,6 +148,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
           setSubscription({ status: 'inactive', expiresAt: null });
           setMainBoardId(null);
           setBoardOrder(null);
+          setHasSeenWelcomeGuide(false);
         }
       } catch (error: any) {
         console.error("[AuthContext] Error in fetchUserData (Firestore operation):", error);
@@ -154,11 +160,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setSubscription({ status: 'inactive', expiresAt: null });
         setMainBoardId(null);
         setBoardOrder(null);
+        setHasSeenWelcomeGuide(null); // Error state
       }
     } else {
       setSubscription(null);
       setMainBoardId(null);
       setBoardOrder(null);
+      setHasSeenWelcomeGuide(null);
     }
   }, []);
 
@@ -178,6 +186,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
+        setHasSeenWelcomeGuide(null);
       }
       setInitialAuthCheckDone(true);
       setLoadingMessage("Autentisering klar.");
@@ -187,6 +196,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         setSubscription(null);
         setMainBoardId(null);
         setBoardOrder(null);
+        setHasSeenWelcomeGuide(null);
         setInitialAuthCheckDone(true);
         setLoadingMessage("Autentiseringsfel.");
     });
@@ -203,7 +213,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     if (userCredential.user) {
       await updateProfile(userCredential.user, { displayName: name });
-      // Firestore document creation is now handled by fetchUserData on new user login
+      // Firestore document creation, including hasSeenWelcomeGuide: false, is handled by fetchUserData
     }
     setLoadingMessage("Konto skapat, loggar in...");
     return userCredential;
@@ -217,7 +227,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const logOut = async () => {
     setLoadingMessage("Loggar ut...");
     await signOut(auth);
-    router.push('/'); // Changed from /logga-in
+    setCurrentUser(null); // Explicitly set currentUser to null on logout
+    setSubscription(null);
+    setMainBoardId(null);
+    setBoardOrder(null);
+    setHasSeenWelcomeGuide(null);
+    router.push('/'); 
     setLoadingMessage("Utloggad.");
   };
 
@@ -234,9 +249,21 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setLoadingMessage("Användardata uppdaterad.");
     } else {
       setLoadingMessage("Ingen användare inloggad för uppdatering.");
-      await fetchUserData(null);
+      await fetchUserData(null); // This will clear states if no user
     }
   }, [fetchUserData]);
+
+  const markWelcomeGuideAsSeen = async () => {
+    if (currentUser) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      try {
+        await updateDoc(userDocRef, { hasSeenWelcomeGuide: true });
+        setHasSeenWelcomeGuide(true);
+      } catch (error) {
+        console.error("Error marking welcome guide as seen:", error);
+      }
+    }
+  };
 
   const loading = !hasMounted || !initialAuthCheckDone;
 
@@ -244,26 +271,19 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     return null; 
   }
 
-  // Removed the global loading screen from AuthProvider itself
-  // if (loading) {
-  //    return (
-  //     <div className="flex h-screen w-full items-center justify-center bg-background">
-  //       <p className="ml-2">{loadingMessage || "Initierar applikation..."}</p>
-  //     </div>
-  //   );
-  // }
-
   const value = {
     currentUser,
     loading,
     subscription,
     mainBoardId,
     boardOrder,
+    hasSeenWelcomeGuide,
     signUp,
     logIn,
     logOut,
     sendPasswordReset,
     refreshUserData,
+    markWelcomeGuideAsSeen,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
