@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
-// console.log('RootLayout rendering - Font test nudge v2'); // Diagnostic log removed
+// console.log('RootLayout rendering - Font test nudge v2');
 
 export default function RootLayout({
   children,
@@ -25,7 +25,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <title>Ekonova</title>
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className="antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -43,3 +43,4 @@ export default function RootLayout({
     </html>
   );
 }
+
