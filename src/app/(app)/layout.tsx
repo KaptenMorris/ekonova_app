@@ -181,7 +181,7 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
 
   useEffect(() => {
     if (!loading && !currentUser) {
-      router.replace('/logga-in');
+      router.replace('/'); // Changed from '/logga-in' to '/'
     }
   }, [currentUser, loading, router]);
 
