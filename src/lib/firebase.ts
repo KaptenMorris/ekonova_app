@@ -1,8 +1,4 @@
 
-// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_X - 2024-08-15T12:00:00Z
-// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_Y_SINGLETON_REFINED - 2024-08-15T14:00:00Z
-// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_Z_CONSOLE_LOG - 2024-08-15T15:30:00Z
-// HMR Nudge Comment - vFINAL_LIB_ATTEMPT_Z_PERSISTENT_HMR_RETRY - 2024-08-15T16:00:00Z
 import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions } from "firebase/app";
 import {
   getAuth,

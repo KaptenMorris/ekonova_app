@@ -1,8 +1,7 @@
+
 import type { Config } from "tailwindcss";
 import defaultTheme from 'tailwindcss/defaultTheme';
 
-// HMR Nudge Comment - vFINAL_TAILWIND_ATTEMPT_Z_PERSISTENT_HMR - 2024-08-15T16:30:00Z
-// Tailwind config cleanup attempt - 2024-08-15T17:30:00Z
 export default {
     darkMode: ["class"],
     content: [

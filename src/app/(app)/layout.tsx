@@ -4,7 +4,7 @@
 import type { FC, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import React, { useEffect, useMemo, useState } from 'react'; // Added useState
+import React, { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import {
   Coins,
@@ -41,7 +41,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import WhatsNewDialog from '@/components/shared/whats-new-dialog';
-import WelcomeGuideDialog from '@/components/shared/welcome-guide-dialog'; // Import WelcomeGuideDialog
+import WelcomeGuideDialog from '@/components/shared/welcome-guide-dialog';
 import { useAppVersionInfo, AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 
 interface AppLayoutProps {

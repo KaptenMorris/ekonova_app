@@ -7,7 +7,6 @@ import { db } from '@/lib/firebase';
 import { useAuth } from './AuthContext'; // Assuming AuthContext provides currentUser
 import type { User } from 'firebase/auth'; // Import User type
 
-// HMR Nudge - AppVersionContext - Aug 16 - Log Refine 2
 export interface AppVersion {
   id: string;
   version: string;
