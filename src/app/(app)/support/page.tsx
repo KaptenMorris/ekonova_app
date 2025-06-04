@@ -56,23 +56,10 @@ EV. YTTERLIGARE INFORMATION SOM KAN VARA TILL HJÄLP:
 *   
 
 
-Tack för att ni hjälper till att göra Ekonova bättre!
+Med vänliga hälsningar,
 `;
-
-    let userContactInfo = "";
-    if (inputEmail) {
-      userContactInfo = inputEmail;
-    } else if (currentUser?.email) {
-      userContactInfo = currentUser.email;
-    }
-
-    if (userContactInfo) {
-      emailBody += `\n\n--------------------\nFrån Ekonova-användare: ${userContactInfo}\nAnvändar-ID (om känt och relevant): [Fyll i ditt UID från Kontoinställningar om det hjälper]\n--------------------\n`;
-    } else {
-      emailBody += `\n\n--------------------\nFrån Ekonova-användare: [Vänligen fyll i din e-postadress här för svar]\nAnvändar-ID (om känt och relevant): [Fyll i ditt UID från Kontoinställningar om det hjälper]\n--------------------\n`;
-    }
     
-    emailBody += `\nMed vänliga hälsningar,\nTeamet bakom Ekonova`;
+    // Removed the automatic addition of user contact info and UID.
 
     const mailtoLink = `mailto:${emailTo}?subject=${encodeURIComponent(subjectLine)}&body=${encodeURIComponent(emailBody)}`;
     window.location.href = mailtoLink;
@@ -93,7 +80,7 @@ Tack för att ni hjälper till att göra Ekonova bättre!
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <Label htmlFor="email">Din E-post (förifylls i mailet som referens)</Label>
+            <Label htmlFor="email">Din E-post (för referens, fylls inte i mailet automatiskt)</Label>
             <Input
               id="email"
               type="email"
@@ -108,7 +95,7 @@ Tack för att ni hjälper till att göra Ekonova bättre!
               }}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              {currentUser?.email ? "Detta är din registrerade e-postadress." : "Ange din e-postadress."}
+              {currentUser?.email ? "Detta är din registrerade e-postadress. Den inkluderas inte automatiskt i mailet längre." : "Ange din e-postadress om du vill att vi ska kunna svara dig."}
             </p>
           </div>
 
