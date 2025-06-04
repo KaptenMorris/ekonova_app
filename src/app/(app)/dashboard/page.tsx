@@ -41,6 +41,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth, parseISO } from 'date-fns';
 import { sv } from 'date-fns/locale';
+import WelcomeGuideDialog from '@/components/shared/welcome-guide-dialog';
 
 
 const iconComponents: { [key: string]: React.ElementType } = {
@@ -172,6 +173,8 @@ export default function DashboardPage() {
   const [isSettingMainBoard, setIsSettingMainBoard] = useState(false);
 
   const [selectedMonthDate, setSelectedMonthDate] = useState<Date>(startOfMonth(new Date()));
+  const [isGuideDialogOpen, setIsGuideDialogOpen] = useState(false);
+
 
   const handlePreviousMonth = () => setSelectedMonthDate(prevDate => subMonths(prevDate, 1));
   const handleNextMonth = () => setSelectedMonthDate(prevDate => addMonths(prevDate, 1));
@@ -1043,43 +1046,51 @@ export default function DashboardPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
         </div>
 
-        {activeBoard && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0" disabled={isLoadingPageData}>
-                <MoreHorizontal className="h-5 w-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56">
-              <div className="space-y-1">
-
-                <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => {
-                  const newName = prompt("Ange nytt namn för tavlan:", activeBoard.name);
-                  if (newName) handleRenameBoard(activeBoard.id, newName);
-                }} disabled={!canEditActiveBoard || isDeletingBoardId === activeBoard.id || isSettingMainBoard}>
-                  <Edit3 className="mr-2 h-4 w-4" /> Byt namn på Tavla
+        <div className="flex items-center gap-2">
+          {activeBoard && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="shrink-0" disabled={isLoadingPageData}>
+                  <MoreHorizontal className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => { setBoardToManageMembersFor(activeBoard); fetchBoardMemberDetails(activeBoard.id); setIsMemberManagementDialogOpen(true); }} disabled={currentUserRoleOnActiveBoard !== 'owner' && currentUserRoleOnActiveBoard !== 'editor' || isDeletingBoardId === activeBoard.id}>
-                  <UserPlus className="mr-2 h-4 w-4" /> Hantera Medlemmar
-                </Button>
-                {activeBoard.id !== mainBoardId && (
-                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleSetMainBoard(activeBoard.id)} disabled={isDeletingBoardId === activeBoard.id || isSettingMainBoard}>
-                    <Home className="mr-2 h-4 w-4" /> Ange som Huvudtavla
+              </PopoverTrigger>
+              <PopoverContent className="w-56">
+                <div className="space-y-1">
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => {
+                    const newName = prompt("Ange nytt namn för tavlan:", activeBoard.name);
+                    if (newName) handleRenameBoard(activeBoard.id, newName);
+                  }} disabled={!canEditActiveBoard || isDeletingBoardId === activeBoard.id || isSettingMainBoard}>
+                    <Edit3 className="mr-2 h-4 w-4" /> Byt namn på Tavla
                   </Button>
-                )}
-                <Separator />
-                <Button variant="ghost" className="w-full justify-start text-sm text-destructive hover:text-destructive" onClick={() => handleDeleteBoard(activeBoard.id)} disabled={currentUserRoleOnActiveBoard !== 'owner' || isDeletingBoardId === activeBoard.id}>
-                  {isDeletingBoardId === activeBoard.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Radera Tavla
-                </Button>
-
-                 {/* <p className="text-xs text-muted-foreground p-2">Fler tavlåtgärder kommer snart.</p> */}
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+                  <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => { setBoardToManageMembersFor(activeBoard); fetchBoardMemberDetails(activeBoard.id); setIsMemberManagementDialogOpen(true); }} disabled={currentUserRoleOnActiveBoard !== 'owner' && currentUserRoleOnActiveBoard !== 'editor' || isDeletingBoardId === activeBoard.id}>
+                    <UserPlus className="mr-2 h-4 w-4" /> Hantera Medlemmar
+                  </Button>
+                  {activeBoard.id !== mainBoardId && (
+                    <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleSetMainBoard(activeBoard.id)} disabled={isDeletingBoardId === activeBoard.id || isSettingMainBoard}>
+                      <Home className="mr-2 h-4 w-4" /> Ange som Huvudtavla
+                    </Button>
+                  )}
+                  <Separator />
+                  <Button variant="ghost" className="w-full justify-start text-sm text-destructive hover:text-destructive" onClick={() => handleDeleteBoard(activeBoard.id)} disabled={currentUserRoleOnActiveBoard !== 'owner' || isDeletingBoardId === activeBoard.id}>
+                    {isDeletingBoardId === activeBoard.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Radera Tavla
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+           <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsGuideDialogOpen(true)}
+            aria-label="Öppna snabbguide"
+            className="shrink-0"
+            disabled={isLoadingPageData || isLoadingBoards}
+          >
+            <HelpCircle className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {activeBoardId && (
@@ -1503,7 +1514,12 @@ export default function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
+      
+      <WelcomeGuideDialog
+        isOpen={isGuideDialogOpen}
+        onClose={() => setIsGuideDialogOpen(false)}
+        showEnticingText={true} 
+      />
     </div>
   );
 }

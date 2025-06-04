@@ -188,6 +188,7 @@ const AppLayoutInner: FC<{
       <WelcomeGuideDialog 
         isOpen={displayWelcomeDialog}
         onClose={handleCloseWelcomeDialog}
+        showEnticingText={true} 
       />
     </>
   );
