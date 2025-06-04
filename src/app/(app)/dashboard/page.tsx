@@ -158,6 +158,8 @@ export default function DashboardPage() {
   const [newCategoryIconName, setNewCategoryIconName] = useState<string | undefined>(iconOptions.find(opt => opt.value === 'Shapes')?.value);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [isCategoryEditMode, setIsCategoryEditMode] = useState(false);
+
 
   const [isMemberManagementDialogOpen, setIsMemberManagementDialogOpen] = useState(false);
   const [boardToManageMembersFor, setBoardToManageMembersFor] = useState<Board | null>(null);
@@ -685,6 +687,7 @@ export default function DashboardPage() {
       setNewCategoryIconName(category.iconName || iconOptions.find(opt => opt.value === 'Shapes')?.value);
     } else {
       resetCategoryForm();
+      setNewCategoryType(undefined); // Ensure type is cleared for new category
     }
     setIsCategoryDialogOpen(true);
   };
@@ -708,14 +711,16 @@ export default function DashboardPage() {
     try {
       const categoriesCollectionRef = collection(db, 'boards', activeBoardId, 'categories');
       if (editingCategory) {
-        await updateDoc(doc(categoriesCollectionRef, editingCategory.id), categoryPayload);
+        // For editing, we don't change the type.
+        const updatePayload = { name: newCategoryName.trim(), iconName: newCategoryIconName };
+        await updateDoc(doc(categoriesCollectionRef, editingCategory.id), updatePayload);
         toast({ title: "Kategori Uppdaterad", description: `Kategorin "${newCategoryName}" har uppdaterats.` });
       } else {
-        if (!newCategoryType) {
+        if (!newCategoryType) { // This check should be redundant due to earlier check, but good for safety
           toast({ title: "Fel", description: "Kategorityp måste anges för ny kategori.", variant: "destructive" });
           return;
         }
-        categoryPayload.type = newCategoryType;
+        categoryPayload.type = newCategoryType; // Set type only for new categories
         await addDoc(categoriesCollectionRef, categoryPayload);
         toast({ title: "Kategori Skapad", description: `Kategorin "${newCategoryName}" har lagts till.` });
       }
@@ -1188,11 +1193,25 @@ export default function DashboardPage() {
           </Card>
 
           <Card className="md:col-span-3">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Kategoriöversikt för {formattedSelectedMonth}</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => handleOpenCategoryDialog()} disabled={!canEditActiveBoard}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Hantera Kategorier
-              </Button>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <CardTitle>Kategoriöversikt för {formattedSelectedMonth}</CardTitle>
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="category-edit-mode" className="text-sm shrink-0">Redigera lista</Label>
+                    <Switch
+                      id="category-edit-mode"
+                      checked={isCategoryEditMode}
+                      onCheckedChange={setIsCategoryEditMode}
+                      disabled={!canEditActiveBoard || isLoadingCategories}
+                      aria-label="Växla redigeringsläge för kategorilistan"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => handleOpenCategoryDialog()} disabled={!canEditActiveBoard || isLoadingCategories}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Hantera Kategorier
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1206,11 +1225,37 @@ export default function DashboardPage() {
                             const total = categoryTotalData ? categoryTotalData.total : 0;
                             return (
                               <li key={category.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30">
-                                <div className="flex items-center">
-                                  {getCategoryIcon(category.name, 'income', category.iconName)}
-                                  <span className="font-medium">{category.name}</span>
+                                <div className="flex items-center flex-grow min-w-0">
+                                  {getCategoryIcon(category.name, category.type, category.iconName)}
+                                  <span className="font-medium truncate" title={category.name}>{category.name}</span>
                                 </div>
-                                <span className="font-semibold text-accent">{total.toLocaleString('sv-SE')} kr</span>
+                                <div className="flex items-center shrink-0 gap-2">
+                                  <span className="font-semibold text-accent">
+                                    {total.toLocaleString('sv-SE')} kr
+                                  </span>
+                                  {isCategoryEditMode && canEditActiveBoard && (
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={() => handleOpenCategoryDialog(category)}
+                                        aria-label={`Redigera ${category.name}`}
+                                      >
+                                        <Edit3 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-destructive hover:text-destructive"
+                                        onClick={() => handleDeleteCategory(category.id, category.name)}
+                                        aria-label={`Radera ${category.name}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
                               </li>
                             );
                         })}
@@ -1230,11 +1275,37 @@ export default function DashboardPage() {
                             const total = categoryTotalData ? categoryTotalData.total : 0;
                             return (
                               <li key={category.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/30">
-                                <div className="flex items-center">
-                                  {getCategoryIcon(category.name, 'expense', category.iconName)}
-                                  <span className="font-medium">{category.name}</span>
+                                <div className="flex items-center flex-grow min-w-0">
+                                  {getCategoryIcon(category.name, category.type, category.iconName)}
+                                  <span className="font-medium truncate" title={category.name}>{category.name}</span>
                                 </div>
-                                <span className="font-semibold text-destructive">{total.toLocaleString('sv-SE')} kr</span>
+                                <div className="flex items-center shrink-0 gap-2">
+                                  <span className="font-semibold text-destructive">
+                                    {total.toLocaleString('sv-SE')} kr
+                                  </span>
+                                  {isCategoryEditMode && canEditActiveBoard && (
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={() => handleOpenCategoryDialog(category)}
+                                        aria-label={`Redigera ${category.name}`}
+                                      >
+                                        <Edit3 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-destructive hover:text-destructive"
+                                        onClick={() => handleDeleteCategory(category.id, category.name)}
+                                        aria-label={`Radera ${category.name}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
                               </li>
                             );
                         })}
@@ -1361,7 +1432,7 @@ export default function DashboardPage() {
             </div>
             {editingCategory && (
               <Button variant="destructive" type="button" onClick={() => { handleDeleteCategory(editingCategory.id, editingCategory.name); setIsCategoryDialogOpen(false); }} className="w-full justify-start" disabled={!canEditActiveBoard}>
-                <Trash2 className="mr-2 h-4 w-4" /> Radera Kategori
+                <Trash2 className="mr-2 h-4 w-4" /> Radera Kategori (från dialog)
               </Button>
             )}
             <DialogFooter>
