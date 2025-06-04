@@ -14,7 +14,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  console.log(`RootLayout rendering/re-evaluating... (Reintroducing Providers - ${new Date().toISOString()})`);
   return (
     <html lang="sv" suppressHydrationWarning>
       <head>
