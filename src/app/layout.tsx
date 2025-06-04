@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
-console.log('RootLayout rendering - Font test nudge v2'); // Diagnostic log
+// console.log('RootLayout rendering - Font test nudge v2'); // Diagnostic log removed
 
 export default function RootLayout({
   children,
