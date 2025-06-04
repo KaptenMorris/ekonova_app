@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    NEXT_PUBLIC_FORCE_REBUILD_NUDGE: Date.now().toString(), // Adding a changing env variable
+  },
 };
 
 export default nextConfig;
