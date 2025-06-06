@@ -253,7 +253,6 @@ export default function BillsPage() {
     return subscription?.status === 'active' && (subscription.expiresAt ? subscription.expiresAt > new Date() : true);
   }, [subscription]);
 
-  // Effect 1: Fetch user's boards
   React.useEffect(() => {
     if (authLoading || !currentUser?.uid || !isSubscribed) {
       setBoards([]);
@@ -286,7 +285,6 @@ export default function BillsPage() {
   }, [currentUser?.uid, isSubscribed, authLoading, toast]);
 
 
-  // Effect 2: Set activeBoardId based on mainBoardId or first available board
   React.useEffect(() => {
     if (authLoading || !currentUser || isLoadingBoards) {
       return;
@@ -311,7 +309,6 @@ export default function BillsPage() {
   }, [boards, mainBoardId, currentUser, authLoading, isLoadingBoards]);
 
 
-  // Update activeBoardName when activeBoardId or boards change
   React.useEffect(() => {
     if (activeBoardId && boards.length > 0) {
         const currentBoard = boards.find(b => b.id === activeBoardId);
@@ -322,7 +319,6 @@ export default function BillsPage() {
   }, [activeBoardId, boards]);
 
 
-  // Effect 3: Fetch bills and pageExpenseCategories for the active board and selected month
   React.useEffect(() => {
     if (!currentUser?.uid || !activeBoardId || !isSubscribed || authLoading) {
       setBills([]);
@@ -374,7 +370,6 @@ export default function BillsPage() {
     }
   }, [currentUser?.uid, activeBoardId, selectedMonthDate, toast, isSubscribed, authLoading, formattedSelectedMonth]);
 
- // Effect 4: Fetch expense categories for the dialog when dialogTargetBoardId changes (for new bills)
  React.useEffect(() => {
     if (!isBillDialogOpen || !dialogTargetBoardId || !currentUser?.uid || currentBill?.id) {
       if(!currentBill?.id && !dialogTargetBoardId) setDialogExpenseCategories([]);
@@ -480,15 +475,12 @@ export default function BillsPage() {
     setBillReceiptImage(imageDataUri);
     setIsParsingBill(true);
     setDialogError(null);
-    // Reset form fields for AI parsing
     setBillTitle('');
     setBillAmount('');
-    // Set due date to first of selected month when parsing, user can change
     setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd'));
     setBillCategory('');
     setBillNotes('');
     setCurrentBill(null);
-    // If activeBoardId is set, use it for the dialog target
     if (activeBoardId) {
         setDialogTargetBoardId(activeBoardId);
     }
@@ -501,7 +493,6 @@ export default function BillsPage() {
       if (result.title) setBillTitle(result.title);
       if (result.amount !== undefined) setBillAmount(String(result.amount));
       if (result.dueDate) {
-         // Ensure parsed due date is valid before setting
         try {
             const parsed = new Date(result.dueDate);
             if (!isNaN(parsed.getTime())) {
@@ -539,7 +530,6 @@ export default function BillsPage() {
     setCurrentBill(null);
     setBillTitle('');
     setBillAmount('');
-    // Default due date to first of currently selected month on the page
     setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd'));
     setBillCategory('');
     setBillNotes('');
@@ -571,20 +561,29 @@ export default function BillsPage() {
       return;
     }
 
-    if (!billTitle || !billAmount || !billCategory) {
-      setDialogError("Titel, belopp och kategori måste fyllas i.");
+    const effectiveCategories = currentBill?.id ? pageExpenseCategories : dialogExpenseCategories;
+    const categoryIsValid = effectiveCategories.some(cat => cat.id === billCategory);
+
+    if (!billTitle.trim() || !billAmount.trim() || !billCategory || !categoryIsValid) {
+      let errMessage = "";
+      if (!billTitle.trim()) errMessage += "Titel måste fyllas i. ";
+      if (!billAmount.trim()) errMessage += "Belopp måste fyllas i. ";
+      if (!billCategory) errMessage += "Kategori måste väljas. ";
+      if (billCategory && !categoryIsValid) errMessage += "Den valda kategorin är ogiltig eller har tagits bort. Välj en annan.";
+      setDialogError(errMessage.trim());
       return;
     }
+
     const numericAmount = parseFloat(billAmount);
     if (isNaN(numericAmount) || numericAmount <= 0) {
-      setDialogError("Ogiltigt belopp.");
+      setDialogError("Ogiltigt belopp. Ange ett positivt tal.");
       return;
     }
 
     const billPayload: Partial<Bill> = {
       title: billTitle,
       amount: numericAmount,
-      dueDate: billDueDate, // This is crucial for monthly filtering
+      dueDate: billDueDate,
       category: billCategory,
       notes: billNotes || '',
       boardId: boardForBill,
@@ -623,14 +622,13 @@ export default function BillsPage() {
         toast({ title: "Räkning Tillagd" });
       }
       setIsBillDialogOpen(false);
-      // Reset form to defaults for next new bill
       setBillTitle('');
       setBillAmount('');
-      setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd')); // Reset to current viewing month
+      setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd')); 
       setBillNotes('');
       setBillReceiptImage(null);
       setCurrentBill(null);
-      setDialogTargetBoardId(activeBoardId); // Reset target to current active board
+      setDialogTargetBoardId(activeBoardId); 
       setBillCategory('');
     } catch (error) {
       console.error("Error saving bill:", error);
@@ -666,7 +664,7 @@ export default function BillsPage() {
         batch.set(newTransactionRef, {
           title: `Betalning: ${bill.title}`,
           amount: bill.amount,
-          date: new Date().toISOString().split('T')[0], // Transaction date is today
+          date: new Date().toISOString().split('T')[0], 
           category: bill.category,
           type: 'expense',
           description: `Automatisk transaktion för betald räkning (ID: ${bill.id}).`,
@@ -709,7 +707,7 @@ export default function BillsPage() {
     const targetBoardDetails = boards.find(b => b.id === boardIdOfBill);
     const roleOnTargetBoard = getUserRoleOnBoard(targetBoardDetails, currentUser);
 
-    if (!canEditActiveBoard) {
+    if (roleOnTargetBoard !== 'owner' && roleOnTargetBoard !== 'editor') { // Corrected: Use roleOnTargetBoard
         toast({ title: "Åtkomst Nekad", description: `Du har inte behörighet att radera räkningar på tavlan "${targetBoardDetails?.name || boardIdOfBill}".`, variant: "destructive" });
         return;
     }
@@ -941,7 +939,7 @@ export default function BillsPage() {
         if (!isOpen) {
           setBillTitle('');
           setBillAmount('');
-          setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd')); // Reset to current viewing month
+          setBillDueDate(format(startOfMonth(selectedMonthDate), 'yyyy-MM-dd')); 
           setBillNotes('');
           setBillReceiptImage(null);
           setCurrentBill(null);
