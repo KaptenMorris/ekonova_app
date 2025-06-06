@@ -9,15 +9,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger, DialogDescription as ShadDialogDescription } from '@/components/ui/dialog';
-import { Upload, Camera, Loader2, AlertCircle, RefreshCw, CheckCircle, Trash2 } from 'lucide-react';
+import { Upload, Camera, Loader2, AlertCircle, RefreshCw, CheckCircle, Trash2, Users, VenetianMask, ClipboardCopy } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, doc, getDocs, query as firestoreQuery, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, addDoc, doc, getDocs, query as firestoreQuery, where, onSnapshot, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription as ShadAlertDescriptionComponent, AlertTitle } from "@/components/ui/alert";
 import Image from 'next/image';
 import SubscriptionPrompt from '@/components/shared/subscription-prompt';
-
+import { Switch } from '@/components/ui/switch'; // Added for bill splitting
+import { Separator } from '@/components/ui/separator'; // Added for visual separation
 
 interface Category {
   id: string;
@@ -30,6 +31,26 @@ interface Board {
   id: string;
   name: string;
 }
+
+interface SplitParticipantRequest {
+  phoneNumber: string;
+  amountDue: number;
+  swishUrl: string;
+}
+
+interface SplitDetailsFirestore {
+  isSplit: boolean;
+  totalSplitters: number;
+  amountPerPerson: number;
+  initiatorSwishNumber?: string; // User's Swish number for receiving payments
+  requests: Array<{
+    participantPhoneNumber: string;
+    amountDue: number;
+    generatedSwishUrl: string;
+    status: 'pending' | 'paid' | 'cancelled'; // Basic status tracking
+  }>;
+}
+
 
 export default function PurchasesPage() {
   const { currentUser, subscription, loading: authLoading, mainBoardId } = useAuth();
@@ -48,7 +69,7 @@ export default function PurchasesPage() {
 
   const [isLoading, setIsLoading] = useState(false); // For form submission
   const [formError, setFormError] = useState<string | null>(null);
-  const [isLoadingBoards, setIsLoadingBoards] = useState(true); 
+  const [isLoadingBoards, setIsLoadingBoards] = useState(true);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
 
@@ -56,11 +77,19 @@ export default function PurchasesPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isCameraDialogOpen, setIsCameraDialogOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [capturedImagePreview, setCapturedImagePreview] = useState<string | null>(null);
   const [scannedReceiptImage, setScannedReceiptImage] = useState<string | null>(null);
+
+  // State for Bill Splitting
+  const [isSplittingExpense, setIsSplittingExpense] = useState(false);
+  const [splitTotalPeople, setSplitTotalPeople] = useState<string>("2"); // Min 2 (user + 1 other)
+  const [userSwishNumberForSplit, setUserSwishNumberForSplit] = useState<string>("");
+  const [splitParticipantPhones, setSplitParticipantPhones] = useState<string[]>([]);
+  const [showSplitResultsDialog, setShowSplitResultsDialog] = useState(false);
+  const [splitResultsData, setSplitResultsData] = useState<SplitParticipantRequest[]>([]);
 
 
   const isSubscribed = useMemo(() => {
@@ -95,8 +124,8 @@ export default function PurchasesPage() {
       }
       toast({ title: "Fel vid hämtning av tavlor", description, variant: "destructive", duration: 20000 });
       setFormError("Kunde inte hämta budgettavlor.");
-      setBoards([]); 
-      setActiveBoardId(undefined); 
+      setBoards([]);
+      setActiveBoardId(undefined);
       setIsLoadingBoards(false);
     });
     return () => unsubscribe();
@@ -116,7 +145,7 @@ export default function PurchasesPage() {
     } else if (boards.length > 0) {
         newTargetBoardId = boards[0].id;
     }
-    
+
     setActiveBoardId(prevActiveBoardId => {
         if (prevActiveBoardId !== newTargetBoardId) {
             return newTargetBoardId;
@@ -134,7 +163,7 @@ export default function PurchasesPage() {
       if (currentBoard) {
         setActiveBoardName(currentBoard.name);
       } else {
-        setActiveBoardName(""); // Should not happen if activeBoardId is from boards list
+        setActiveBoardName("");
       }
     } else {
       setActiveBoardName("");
@@ -150,14 +179,13 @@ export default function PurchasesPage() {
       return;
     }
     setIsLoadingCategories(true);
-    setExpenseCategories([]); // Clear old categories
+    setExpenseCategories([]);
 
     const categoriesRef = collection(db, 'boards', activeBoardId, 'categories');
-    const q = firestoreQuery(categoriesRef); // Removed orderBy to avoid index need
+    const q = firestoreQuery(categoriesRef);
 
     const unsubscribeCategories = onSnapshot(q, (snapshot) => {
       let fetchedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
-      // Filter and sort on client
       fetchedCategories = fetchedCategories.filter(cat => cat.type === 'expense').sort((a,b) => a.name.localeCompare(b.name));
       setExpenseCategories(fetchedCategories);
       setIsLoadingCategories(false);
@@ -167,7 +195,25 @@ export default function PurchasesPage() {
       setIsLoadingCategories(false);
     });
     return () => unsubscribeCategories();
-  }, [currentUser?.uid, activeBoardId, toast, isSubscribed, authLoading]); // Removed isLoadingCategories
+  }, [currentUser?.uid, activeBoardId, toast, isSubscribed, authLoading]);
+
+   // Effect for Split Expense: Adjust participant phone number inputs based on total people
+   useEffect(() => {
+    const numTotal = parseInt(splitTotalPeople, 10);
+    if (isSplittingExpense && numTotal >= 2) {
+      setSplitParticipantPhones(currentPhones => {
+        const numOtherParticipants = numTotal - 1;
+        if (currentPhones.length > numOtherParticipants) {
+          return currentPhones.slice(0, numOtherParticipants);
+        } else if (currentPhones.length < numOtherParticipants) {
+          return [...currentPhones, ...Array(numOtherParticipants - currentPhones.length).fill('')];
+        }
+        return currentPhones;
+      });
+    } else if (!isSplittingExpense) {
+      setSplitParticipantPhones([]);
+    }
+  }, [isSplittingExpense, splitTotalPeople]);
 
   // Camera Logic
   useEffect(() => {
@@ -250,6 +296,11 @@ export default function PurchasesPage() {
     }
   };
 
+  const handleParticipantPhoneChange = (index: number, value: string) => {
+    setSplitParticipantPhones(currentPhones =>
+      currentPhones.map((phone, i) => (i === index ? value : phone))
+    );
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -269,9 +320,58 @@ export default function PurchasesPage() {
     }
 
     setIsLoading(true);
+    let splitDetailsForFirestore: SplitDetailsFirestore | null = null;
+
+    if (isSplittingExpense) {
+      const numTotalPeople = parseInt(splitTotalPeople, 10);
+      if (isNaN(numTotalPeople) || numTotalPeople < 2) {
+        setFormError("Antal personer att dela med måste vara minst 2.");
+        setIsLoading(false);
+        return;
+      }
+      if (!userSwishNumberForSplit.trim()) {
+        setFormError("Ange ditt Swish-nummer för att kunna ta emot betalningar.");
+        setIsLoading(false);
+        return;
+      }
+      const validParticipantPhones = splitParticipantPhones.filter(phone => phone.trim() !== '');
+      if (validParticipantPhones.length !== numTotalPeople - 1) {
+        setFormError(`Ange ${numTotalPeople - 1} telefonnummer för de andra deltagarna.`);
+        setIsLoading(false);
+        return;
+      }
+
+      const amountPerPerson = parseFloat((numericAmount / numTotalPeople).toFixed(2));
+      const generatedRequests: SplitParticipantRequest[] = [];
+      const firestoreRequests: SplitDetailsFirestore['requests'] = [];
+
+      validParticipantPhones.forEach(phone => {
+        const swishMessage = encodeURIComponent(`Ekonova: ${title || 'delat köp'}`);
+        const swishUrl = `swish://payment?payee=${userSwishNumberForSplit.trim()}&amount=${amountPerPerson}&message=${swishMessage}`;
+        generatedRequests.push({ phoneNumber: phone, amountDue: amountPerPerson, swishUrl });
+        firestoreRequests.push({
+          participantPhoneNumber: phone,
+          amountDue: amountPerPerson,
+          generatedSwishUrl: swishUrl,
+          status: 'pending'
+        });
+      });
+
+      setSplitResultsData(generatedRequests);
+      setShowSplitResultsDialog(true); // Show dialog with Swish links
+
+      splitDetailsForFirestore = {
+        isSplit: true,
+        totalSplitters: numTotalPeople,
+        amountPerPerson: amountPerPerson,
+        initiatorSwishNumber: userSwishNumberForSplit.trim(),
+        requests: firestoreRequests,
+      };
+    }
+
     try {
       const transactionsRef = collection(db, 'boards', activeBoardId, 'transactions');
-      await addDoc(transactionsRef, {
+      const transactionData: any = {
         title,
         amount: numericAmount,
         date,
@@ -279,10 +379,29 @@ export default function PurchasesPage() {
         type: 'expense',
         description: notes,
         receiptImage: scannedReceiptImage,
-        createdAt: new Date().toISOString(),
-      });
-      toast({ title: "Inköp Registrerat", description: `${title} har lagts till som en utgift.` });
-      setTitle(''); setAmount(''); setDate(new Date().toISOString().split('T')[0]); setSelectedCategoryId(undefined); setNotes(''); setScannedReceiptImage(null);
+        createdAt: serverTimestamp(),
+        createdBy: currentUser.uid,
+      };
+      if (splitDetailsForFirestore) {
+        transactionData.splitDetails = splitDetailsForFirestore;
+      }
+
+      await addDoc(transactionsRef, transactionData);
+
+      if (!isSplittingExpense) { // Only reset form immediately if not splitting (dialog handles reset otherwise)
+          toast({ title: "Inköp Registrerat", description: `${title} har lagts till som en utgift.` });
+          setTitle(''); setAmount(''); setDate(new Date().toISOString().split('T')[0]); setSelectedCategoryId(undefined); setNotes(''); setScannedReceiptImage(null);
+          // Reset split fields as well
+          setIsSplittingExpense(false);
+          setSplitTotalPeople("2");
+          setUserSwishNumberForSplit("");
+          setSplitParticipantPhones([]);
+      } else {
+         toast({ title: "Inköp Registrerat & Delningsinfo Genererad", description: `Detaljer för att dela kostnaden visas nu.` });
+         // Don't reset main form fields yet, user might want to register another similar purchase after dialog.
+         // Reset is handled by the dialog close or a dedicated "New Purchase" button after split.
+      }
+
     } catch (err) {
       console.error("Error adding purchase: ", err);
       toast({ title: "Fel", description: "Kunde inte registrera inköpet.", variant: "destructive" });
@@ -292,16 +411,40 @@ export default function PurchasesPage() {
     }
   };
 
-  if (authLoading || isLoadingBoards) { 
+  const resetMainForm = () => {
+    setTitle('');
+    setAmount('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setSelectedCategoryId(undefined);
+    setNotes('');
+    setScannedReceiptImage(null);
+    setIsSplittingExpense(false);
+    setSplitTotalPeople("2");
+    setUserSwishNumberForSplit("");
+    setSplitParticipantPhones([]);
+    setSplitResultsData([]);
+    setFormError(null);
+  };
+
+  const handleCopySwishUrl = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      toast({ title: "Swish-länk Kopierad!" });
+    }).catch(err => {
+      toast({ title: "Kopiering Misslyckades", description: "Kunde inte kopiera länken.", variant: "destructive" });
+    });
+  };
+
+
+  if (authLoading || isLoadingBoards) {
      return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /> Laddar...</div>;
   }
   if (!currentUser && !authLoading) {
     return <div className="text-center p-8">Vänligen logga in för att registrera inköp.</div>
   }
   if (!isSubscribed && currentUser) {
-    return <SubscriptionPrompt featureName="Inköpsregistrering" />;
+    return <SubscriptionPrompt featureName="Inköpsregistrering och Delning av Utgifter" />;
   }
-  if (!isLoadingBoards && boards.length === 0 && currentUser && isSubscribed) { 
+  if (!isLoadingBoards && boards.length === 0 && currentUser && isSubscribed) {
      return (
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -322,15 +465,16 @@ export default function PurchasesPage() {
 
 
   return (
+    <>
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle>Registrera Nytt Inköp</CardTitle>
         {boards.length > 0 && (
            <div className="grid gap-2 mt-4">
             <Label htmlFor="boardSelect">Välj Budgettavla</Label>
-            <Select 
-              value={activeBoardId} 
-              onValueChange={setActiveBoardId} 
+            <Select
+              value={activeBoardId}
+              onValueChange={setActiveBoardId}
               disabled={isLoadingBoards || boards.length === 0 || isLoadingCategories}
             >
               <SelectTrigger id="boardSelect">
@@ -346,7 +490,7 @@ export default function PurchasesPage() {
         )}
         <CardDescription className="mt-2">
           Lägg till detaljer om ditt senaste inköp. Detta skapar en utgift på tavlan:
-          <span className="font-semibold text-primary"> {activeBoardName || "Ingen tavla vald"}</span>.
+          <span className="font-semibold text-primary"> {activeBoardName || (boards.length > 0 ? "Välj en tavla" : "Ingen tavla vald")}</span>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -375,10 +519,10 @@ export default function PurchasesPage() {
 
           <div className="grid gap-2">
             <Label htmlFor="purchaseCategory">Kategori</Label>
-            <Select 
-              value={selectedCategoryId} 
-              onValueChange={setSelectedCategoryId} 
-              required 
+            <Select
+              value={selectedCategoryId}
+              onValueChange={setSelectedCategoryId}
+              required
               disabled={!activeBoardId || isLoadingCategories || expenseCategories.length === 0}
             >
               <SelectTrigger>
@@ -509,13 +653,113 @@ export default function PurchasesPage() {
             <Textarea id="purchaseNotes" placeholder="Fyll i detaljer från det skannade kvittot här, t.ex. specifika varor, garanti-ID..." value={notes} onChange={e => setNotes(e.target.value)} disabled={!activeBoardId || isLoadingCategories}/>
           </div>
 
-          <Button size="lg" className="w-full" type="submit" disabled={isLoading || !activeBoardId || isLoadingBoards || isLoadingCategories}>
+          <Separator className="my-6" />
+
+          {/* Bill Splitting Section */}
+          <div className="space-y-4 p-4 border rounded-md bg-muted/30">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="splitExpenseSwitch" className="text-lg font-semibold flex items-center">
+                <Users className="mr-2 h-5 w-5 text-primary" /> Dela detta inköp?
+              </Label>
+              <Switch
+                id="splitExpenseSwitch"
+                checked={isSplittingExpense}
+                onCheckedChange={setIsSplittingExpense}
+                disabled={!activeBoardId || isLoadingCategories}
+              />
+            </div>
+            {isSplittingExpense && (
+              <div className="space-y-4 pt-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="splitTotalPeople">Totalt antal personer (inkl. dig själv)</Label>
+                  <Input
+                    id="splitTotalPeople"
+                    type="number"
+                    min="2"
+                    value={splitTotalPeople}
+                    onChange={(e) => setSplitTotalPeople(e.target.value)}
+                    placeholder="T.ex. 3"
+                    disabled={!activeBoardId || isLoadingCategories}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="userSwishNumberForSplit">Ditt Swish-nummer (för att ta emot betalningar)</Label>
+                  <Input
+                    id="userSwishNumberForSplit"
+                    type="tel"
+                    value={userSwishNumberForSplit}
+                    onChange={(e) => setUserSwishNumberForSplit(e.target.value)}
+                    placeholder="T.ex. 0701234567"
+                    disabled={!activeBoardId || isLoadingCategories}
+                  />
+                </div>
+                {parseInt(splitTotalPeople, 10) > 1 && Array.from({ length: parseInt(splitTotalPeople, 10) - 1 }).map((_, index) => (
+                  <div key={`participant-${index}`} className="grid gap-2">
+                    <Label htmlFor={`participantPhone-${index}`}>Deltagare {index + 1} Telefonnummer</Label>
+                    <Input
+                      id={`participantPhone-${index}`}
+                      type="tel"
+                      value={splitParticipantPhones[index] || ''}
+                      onChange={(e) => handleParticipantPhoneChange(index, e.target.value)}
+                      placeholder="Annan deltagares nummer"
+                      disabled={!activeBoardId || isLoadingCategories}
+                    />
+                  </div>
+                ))}
+                 <p className="text-xs text-muted-foreground">När du registrerar inköpet genereras Swish-länkar som du kan dela med deltagarna.</p>
+              </div>
+            )}
+          </div>
+          {/* End Bill Splitting Section */}
+
+
+          <Button size="lg" className="w-full mt-6" type="submit" disabled={isLoading || !activeBoardId || isLoadingBoards || isLoadingCategories}>
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Registrera Inköp"}
           </Button>
         </form>
       </CardContent>
     </Card>
+
+    <Dialog open={showSplitResultsDialog} onOpenChange={(open) => {
+        setShowSplitResultsDialog(open);
+        if (!open) {
+            resetMainForm(); // Reset the main form when closing the results dialog
+        }
+    }}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Dela Kostnad - Swish Förfrågningar</DialogTitle>
+                <ShadDialogDescription>
+                    Inköpet är registrerat. Kopiera och skicka följande Swish-länkar till respektive person.
+                    Belopp per person: {(parseFloat(amount) / parseInt(splitTotalPeople, 10) || 0).toLocaleString('sv-SE', { style: 'currency', currency: 'SEK' })}.
+                </ShadDialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
+                {splitResultsData.map((result, index) => (
+                    <div key={index} className="p-3 border rounded-md">
+                        <p className="font-semibold">Till: {result.phoneNumber}</p>
+                        <p>Belopp: {result.amountDue.toLocaleString('sv-SE', { style: 'currency', currency: 'SEK' })}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Button variant="outline" size="sm" asChild>
+                                <a href={result.swishUrl} target="_blank" rel="noopener noreferrer">
+                                    <VenetianMask className="mr-2 h-4 w-4" /> Öppna Swish
+                                </a>
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleCopySwishUrl(result.swishUrl)}>
+                                <ClipboardCopy className="mr-2 h-4 w-4" /> Kopiera Länk
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 break-all">Länk: <code className="text-xs">{result.swishUrl}</code></p>
+                    </div>
+                ))}
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button">Stäng & Registrera Nytt Inköp</Button>
+                </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }
-
-    
