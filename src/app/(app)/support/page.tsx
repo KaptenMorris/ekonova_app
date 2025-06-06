@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Send, Info, CheckCircle, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 
 type IssueType = "bug" | "suggestion" | "question" | "other";
 
