@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle as DialogTitleComponen
 import { useAuth } from '@/contexts/AuthContext';
 import React, { useState, useEffect, FormEvent, useRef } from 'react';
 import { updateProfile as updateFirebaseAuthProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { doc, updateDoc, getDoc, setDoc, serverTimestamp, Timestamp, deleteDoc as deleteFirestoreDoc, collection, query, where, getDocs, writeBatch, FieldValue } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, serverTimestamp, Timestamp, deleteDoc as deleteFirestoreDoc, collection, query, where, getDocs, writeBatch, type FieldValue } from 'firebase/firestore';
 import { auth, db, storage } from '@/lib/firebase';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject as deleteStorageObject } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
@@ -86,7 +86,6 @@ export default function AccountSettingsPage() {
           if (userDocSnap.exists()) {
               const userData = userDocSnap.data();
               if (userData.displayName) setDisplayName(userData.displayName);
-              // Prioritize Auth photoURL if available and different from Firestore, then Firestore, then null
               setImagePreviewUrl(currentUser.photoURL || userData.photoURL || null);
           } else {
              setImagePreviewUrl(currentUser.photoURL || null);
@@ -123,43 +122,36 @@ const handleProfileUpdate = async (e: FormEvent) => {
     setProfileError(null);
     
     const user = auth.currentUser;
-    let operationSucceeded = false;
-    let changesMade = false;
-    let finalPhotoURLForUpdate: string | null = user.photoURL || null; // Start with existing Auth URL
+    let newPhotoURL: string | null = user.photoURL || null; // Initialize with current Auth photoURL
+    let hasNewImageToUpload = false;
 
     try {
+        if (selectedImageFile) {
+            const filePath = `profileImages/${user.uid}/profilePicture.jpg`;
+            const imageStorageRef = storageRef(storage, filePath);
+            console.log("Attempting to upload new profile picture to:", filePath);
+            await uploadBytes(imageStorageRef, selectedImageFile);
+            newPhotoURL = await getDownloadURL(imageStorageRef);
+            console.log("Upload successful, new photo URL:", newPhotoURL);
+            hasNewImageToUpload = true;
+        }
+
         const authUpdates: { displayName?: string; photoURL?: string | null } = {};
         const firestoreUpdates: any = { updatedAt: serverTimestamp() };
+        let changesMade = false;
 
-        // 1. Handle display name change
         if (displayName !== (user.displayName || '')) {
             authUpdates.displayName = displayName;
             firestoreUpdates.displayName = displayName;
             changesMade = true;
         }
 
-        // 2. Handle new image upload if a file is selected
-        if (selectedImageFile) {
-            const filePath = `profileImages/${user.uid}/profilePicture.jpg`;
-            const imageStorageRef = storageRef(storage, filePath);
-            
-            console.log("Attempting to upload new profile picture...");
-            await uploadBytes(imageStorageRef, selectedImageFile); // This is where the error likely occurs
-            console.log("Upload successful, getting download URL...");
-            finalPhotoURLForUpdate = await getDownloadURL(imageStorageRef);
-            console.log("New photo URL:", finalPhotoURLForUpdate);
-            
-            authUpdates.photoURL = finalPhotoURLForUpdate;
-            firestoreUpdates.photoURL = finalPhotoURLForUpdate;
+        if (newPhotoURL !== (user.photoURL || null)) {
+            authUpdates.photoURL = newPhotoURL;
+            firestoreUpdates.photoURL = newPhotoURL;
             changesMade = true;
         }
-        // If no new file is selected, but the preview URL (which could be null if user clicked "Remove" on preview)
-        // is different from the current auth URL, it means we might be removing an image.
-        // This case is now primarily handled by handleRemoveProfileImage for SAVED images.
-        // This `handleProfileUpdate` now only sets a new image or updates name.
-        // If `selectedImageFile` is null, `finalPhotoURLForUpdate` remains the original Auth URL unless `handleRemoveProfileImage` was called.
-
-        // 3. Apply updates if any changes were made
+        
         if (changesMade) {
             if (Object.keys(authUpdates).length > 0) {
                 console.log("Updating Firebase Auth profile:", authUpdates);
@@ -167,8 +159,7 @@ const handleProfileUpdate = async (e: FormEvent) => {
             }
 
             const userDocRef = doc(db, 'users', user.uid);
-            // Ensure email is in Firestore if not already (usually on first profile update after signup)
-            if (!firestoreUpdates.email && user.email) {
+            if (!firestoreUpdates.email && user.email) { // Ensure email is in Firestore
                 const userSnap = await getDoc(userDocRef);
                 if (!userSnap.exists() || !userSnap.data()?.email) {
                     firestoreUpdates.email = user.email;
@@ -176,8 +167,17 @@ const handleProfileUpdate = async (e: FormEvent) => {
             }
             console.log("Updating Firestore user document:", firestoreUpdates);
             await setDoc(userDocRef, firestoreUpdates, { merge: true });
+            
+            await refreshUserData();
+            toast({ title: "Profil Uppdaterad", description: "Din profil har sparats." });
+
+            if (hasNewImageToUpload) {
+                setSelectedImageFile(null); 
+                setImagePreviewUrl(newPhotoURL); 
+            }
+        } else {
+            toast({ title: "Inga Ändringar", description: "Inga ändringar att spara." });
         }
-        operationSucceeded = true;
 
     } catch (error: any) {
         console.error("PROFILE UPDATE ERROR:", error);
@@ -186,7 +186,7 @@ const handleProfileUpdate = async (e: FormEvent) => {
             switch (error.code) {
                 case 'storage/unauthorized': userFriendlyError += "Du har inte behörighet att ladda upp bilden. Kontrollera Firebase Storage-reglerna."; break;
                 case 'storage/canceled': userFriendlyError += "Bilduppladdningen avbröts."; break;
-                case 'storage/retry-limit-exceeded': userFriendlyError += "Maximalt antal återförsök för bilduppladdning överskreds. Kontrollera din nätverksanslutning och försök igen. Filen kan vara för stor eller anslutningen instabil."; break;
+                case 'storage/retry-limit-exceeded': userFriendlyError += "Maximalt antal återförsök för bilduppladdning överskreds. Kontrollera din nätverksanslutning och försök igen."; break;
                 case 'storage/unknown': userFriendlyError += "Ett okänt lagringsfel uppstod vid bilduppladdning."; break;
                 case 'auth/requires-recent-login': userFriendlyError += "Denna åtgärd kräver en färsk inloggning. Logga ut och in igen."; break;
                 default: userFriendlyError += `Felkod: ${error.code}. ${error.message || ''}`;
@@ -194,22 +194,8 @@ const handleProfileUpdate = async (e: FormEvent) => {
         } else { userFriendlyError += error.message || "Ett okänt fel inträffade."; }
         setProfileError(userFriendlyError);
         toast({ title: "Fel vid Profiluppdatering", description: userFriendlyError, variant: "destructive", duration: 10000 });
-        operationSucceeded = false; // Explicitly set to false
     } finally {
         setIsLoadingProfile(false);
-    }
-
-    if (operationSucceeded) {
-        if (changesMade) {
-            await refreshUserData(); 
-            toast({ title: "Profil Uppdaterad", description: "Din profil har sparats." });
-            if (selectedImageFile) { // If a new image was part of the successful update
-                setSelectedImageFile(null); // Clear the selected file
-                setImagePreviewUrl(finalPhotoURLForUpdate); // Update preview to the saved URL
-            }
-        } else {
-            toast({ title: "Inga Ändringar", description: "Inga ändringar att spara." });
-        }
     }
 };
 
@@ -225,22 +211,17 @@ const handleRemoveProfileImage = async () => {
 
     setIsLoadingProfile(true); 
     setProfileError(null);
-    let operationSucceeded = false;
+    const user = auth.currentUser;
 
     try {
-        const user = auth.currentUser;
-        const currentAuthPhotoURL = user.photoURL;
-
-        // Check if there's an image in Firebase Storage to delete
-        // This assumes the image path is consistent
-        if (currentAuthPhotoURL) {
-            const filePath = `profileImages/${user.uid}/profilePicture.jpg`;
+        // Only attempt to delete from storage if there was a photoURL (implies it might be in storage)
+        if (user.photoURL) {
+            const filePath = `profileImages/${user.uid}/profilePicture.jpg`; // Assume this path
             const imageStorageRef = storageRef(storage, filePath);
             try {
                 await deleteStorageObject(imageStorageRef);
                 console.log("Profile image deleted from Storage.");
             } catch (storageError: any) {
-                // If object doesn't exist, it's not a critical error for this flow
                 if (storageError.code !== 'storage/object-not-found') {
                     console.warn("Could not delete profile image from Storage, but proceeding to update Auth/Firestore:", storageError);
                 } else {
@@ -249,16 +230,14 @@ const handleRemoveProfileImage = async () => {
             }
         }
 
-        // Update Firebase Auth profile
         await updateFirebaseAuthProfile(user, { photoURL: null });
-        console.log("Firebase Auth profile photoURL set to null.");
-
-        // Update Firestore document
         const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, { photoURL: null, updatedAt: serverTimestamp() });
-        console.log("Firestore user document photoURL set to null.");
         
-        operationSucceeded = true;
+        setImagePreviewUrl(null); 
+        setSelectedImageFile(null); 
+        await refreshUserData(); 
+        toast({ title: "Profilbild Borttagen", description: "Din profilbild har tagits bort." });
 
     } catch (error: any) {
         console.error("Error removing profile image:", error);
@@ -272,13 +251,6 @@ const handleRemoveProfileImage = async () => {
         toast({ title: "Fel", description: userFriendlyError, variant: "destructive" });
     } finally {
         setIsLoadingProfile(false);
-    }
-    
-    if (operationSucceeded) {
-        setImagePreviewUrl(null); // Clear local preview
-        setSelectedImageFile(null); // Clear any selected file
-        await refreshUserData(); // Refresh global user data
-        toast({ title: "Profilbild Borttagen", description: "Din profilbild har tagits bort." });
     }
 };
 
@@ -612,7 +584,7 @@ const handleRemoveProfileImage = async () => {
                     </DialogContent>
                 </Dialog>
               </div>
-               {(imagePreviewUrl || selectedImageFile) && ( // Show remove button if there's a preview or a file selected for upload
+               {(imagePreviewUrl || selectedImageFile) && ( 
                 <Button variant="destructive" type="button" onClick={handleRemoveProfileImage} className="w-full sm:w-auto" disabled={isLoadingProfile && !selectedImageFile}>
                   {isLoadingProfile && (currentUser?.photoURL && !selectedImageFile) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                   Ta bort profilbild

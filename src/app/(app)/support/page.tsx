@@ -171,7 +171,6 @@ export default function SupportPage() {
                 <li><strong>Övrigt:</strong> Andra synpunkter eller funderingar du har.</li>
               </ul>
               <p className="mt-3">Vi strävar efter att svara så snart som möjligt. Ditt meddelande skickas till <strong>info@marius-christensen.se</strong>.</p>
-              <p className="text-xs mt-2"><em>Notera: E-postutskick från servern är under utveckling och simuleras just nu om SMTP-uppgifter inte är fullständigt konfigurerade.</em></p>
             </AlertDescription>
           </Alert>
         </CardContent>
