@@ -161,10 +161,17 @@ export default function SupportPage() {
 
           <Alert variant="default" className="mt-6">
             <Info className="h-4 w-4" />
-            <ShadAlertTitle className="font-semibold">Information om E-postutskick</ShadAlertTitle>
+            <ShadAlertTitle className="font-semibold">Vad kan du kontakta oss om?</ShadAlertTitle>
             <AlertDescription>
-              När du skickar detta formulär kommer ett meddelande att (försökas) skickas till vår supportadress <strong>info@marius-christensen.se</strong>.
-              Implementationen av själva e-postutskicket från servern behöver slutföras. Just nu simuleras utskicket.
+              <p className="mb-2">Använd detta formulär för att nå oss angående:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                <li><strong>Buggrapporter:</strong> Om du hittar något som inte fungerar som förväntat. Beskriv gärna stegen för att återskapa felet.</li>
+                <li><strong>Funktionsförslag:</strong> Har du idéer på hur Ekonova kan bli ännu bättre? Vi lyssnar gärna!</li>
+                <li><strong>Allmänna frågor:</strong> Om du undrar över någon funktion eller behöver hjälp att komma igång.</li>
+                <li><strong>Övrigt:</strong> Andra synpunkter eller funderingar du har.</li>
+              </ul>
+              <p className="mt-3">Vi strävar efter att svara så snart som möjligt. Ditt meddelande skickas till <strong>info@marius-christensen.se</strong>.</p>
+              <p className="text-xs mt-2"><em>Notera: E-postutskick från servern är under utveckling och simuleras just nu om SMTP-uppgifter inte är fullständigt konfigurerade.</em></p>
             </AlertDescription>
           </Alert>
         </CardContent>
