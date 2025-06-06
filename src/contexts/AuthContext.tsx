@@ -13,7 +13,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   type User,
-  type FirebaseAuthType // Import the Auth type
+  type Auth // Changed from FirebaseAuthType
 } from '@/lib/firebase';
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -254,3 +254,4 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
