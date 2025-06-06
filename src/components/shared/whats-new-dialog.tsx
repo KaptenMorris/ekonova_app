@@ -18,26 +18,65 @@ const WhatsNewDialog: React.FC<WhatsNewDialogProps> = ({ isOpen, onClose, versio
     return null;
   }
 
-  // Basic markdown-to-HTML conversion (can be expanded)
   const formatDescription = (text: string) => {
-    let html = text;
-    // Replace newlines with <br>
-    html = html.replace(/\n/g, '<br />');
-    // Replace **bold** with <strong>
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    // Replace *italic* or _italic_ with <em>
-    html = html.replace(/(\*|_)(.*?)\1/g, '<em>$2</em>');
-    // Replace lists
-    html = html.replace(/^\s*-\s+(.*)/gm, '<li class="ml-4 list-disc">$1</li>');
-    html = html.replace(/<br \/>(<li.*<\/li>)/g, '$1'); // Remove <br> before <li>
-    html = html.replace(/(<\/li>)<br \/>/g, '$1'); // Remove <br> after </li>
-     // Wrap list items in <ul> if not already done by multiple <li>
-    if (html.includes('<li>') && !html.includes('<ul>')) {
-        html = html.replace(/(<li.*<\/li>)/gs, '<ul>$1</ul>');
-    }
+    let processedText = text;
+
+    // 1. Handle Headings (H2, H3)
+    // Ensure headings are on their own lines and processed before paragraphs
+    processedText = processedText.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    processedText = processedText.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+
+    // 2. Handle Lists (unordered with - or *)
+    // This regex finds blocks of list items and wraps them in <ul><li>...</li></ul>
+    processedText = processedText.replace(
+      /^\s*([-*])\s+(.*(?:(?:\n^\s*[-*]\s+.*)|(?:\n\s+(?![-*]).*))*)/gm,
+      (match) => {
+        // Split the match into lines. Each line starting with - or * is an item.
+        // Subsequent lines not starting with - or * but indented could be part of the same item (multiline).
+        // For simplicity here, we'll treat each line starting with -/* as a new <li>.
+        const items = match.split('\n').map(itemLine => {
+          // Remove the list marker and trim
+          return itemLine.replace(/^\s*[-*]\s+/, '').trim();
+        }).filter(item => item.length > 0); // Filter out empty items from potential trailing newlines
+
+        return `<ul>${items.map(item => `<li>${item}</li>`).join('')}</ul>`;
+      }
+    );
+
+    // 3. Handle Paragraphs and Line Breaks after block elements are processed
+    // Split by double newlines to form paragraphs.
+    // For blocks that are not already H2, H3, or UL, wrap in <p>
+    // And convert single newlines within those to <br />.
+    let htmlOutput = processedText.split(/\n\s*\n/).map(block => {
+      const trimmedBlock = block.trim();
+      if (trimmedBlock.startsWith('<h2>') || trimmedBlock.startsWith('<h3>') || trimmedBlock.startsWith('<ul>')) {
+        // These blocks are already formatted, pass them through.
+        // Bold/italic will be applied globally later.
+        return trimmedBlock;
+      }
+      if (trimmedBlock) {
+        // For remaining text blocks, treat as a paragraph.
+        // Convert single newlines within this block to <br />.
+        return `<p>${trimmedBlock.replace(/\n/g, '<br />')}</p>`;
+      }
+      return '';
+    }).join('');
+
+    // 4. Apply Bold and Italic formatting globally to the generated HTML structure
+    htmlOutput = htmlOutput.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Ensure that the italic regex doesn't conflict with the bold one if applied sequentially.
+    // The use of \1 for the closing * or _ makes it specific.
+    htmlOutput = htmlOutput.replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, '<em>$1</em>'); // *italic*
+    htmlOutput = htmlOutput.replace(/_(.*?)_/g, '<em>$1</em>'); // _italic_
 
 
-    return { __html: html };
+    // Cleanup: Remove <br /> tags that are immediately after </ul> or </h3> or </h2>
+    htmlOutput = htmlOutput.replace(/(<\/(ul|h2|h3)>)<br \/>/gi, '$1');
+    // Cleanup: Remove <p><br \/><\/p> or empty <p></p>
+    htmlOutput = htmlOutput.replace(/<p>\s*(<br \/>)?\s*<\/p>/gi, '');
+
+
+    return { __html: htmlOutput };
   };
 
 
@@ -65,3 +104,4 @@ const WhatsNewDialog: React.FC<WhatsNewDialogProps> = ({ isOpen, onClose, versio
 };
 
 export default WhatsNewDialog;
+
