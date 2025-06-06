@@ -20,7 +20,7 @@ import {
   HelpCircle,
   LifeBuoy,
   Bot,
-  Megaphone, // Importera Megafonikonen
+  Megaphone,
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -41,9 +41,9 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import WhatsNewDialog from '@/components/shared/whats-new-dialog'; // Importera WhatsNewDialog
+import WhatsNewDialog from '@/components/shared/whats-new-dialog';
 import WelcomeGuideDialog from '@/components/shared/welcome-guide-dialog';
-import { useAppVersionInfo, AppVersionInfoProvider, type AppVersion } from '@/contexts/AppVersionContext'; // Importera AppVersionInfoProvider och useAppVersionInfo
+import { useAppVersionInfo, AppVersionInfoProvider, type AppVersion } from '@/contexts/AppVersionContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -127,7 +127,7 @@ const AppLayoutInner: FC<AppLayoutInnerProps> = ({
 
   return (
     <>
-      <Sidebar variant="sidebar" className="border-r">
+      <Sidebar variant="sidebar" className="border-r" collapsible="icon">
         <SidebarHeader className="p-4 flex items-center justify-between">
           <Logo />
           <SidebarTrigger className="md:hidden" />
@@ -167,7 +167,6 @@ const AppLayoutInner: FC<AppLayoutInnerProps> = ({
             </div>
           </div>
           <Separator className="my-2 bg-sidebar-border" />
-           {/* ThemeToggle är nu i header */}
            <Button
               variant="ghost"
               size="sm"
@@ -260,7 +259,7 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   }
 
   return (
-      <SidebarProvider defaultOpen collapsible="icon">
+      <SidebarProvider defaultOpen> {/* Corrected: Removed collapsible="icon" from here */}
         <AppLayoutInner
           currentUser={currentUser}
           logOut={logOut}
@@ -278,7 +277,6 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   );
 };
 
-// Wrap AppLayout with AppVersionInfoProvider
 const WrappedAppLayout: FC<AppLayoutProps> = ({ children }) => {
   return (
     <AppVersionInfoProvider>
@@ -288,3 +286,5 @@ const WrappedAppLayout: FC<AppLayoutProps> = ({ children }) => {
 };
 
 export default WrappedAppLayout;
+
+    
