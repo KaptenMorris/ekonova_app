@@ -167,7 +167,7 @@ const AppLayoutInner: FC<AppLayoutInnerProps> = ({
             </div>
           </div>
           <Separator className="my-2 bg-sidebar-border" />
-           {/* ThemeToggle borttagen härifrån */}
+           {/* ThemeToggle är nu i header */}
            <Button
               variant="ghost"
               size="sm"
