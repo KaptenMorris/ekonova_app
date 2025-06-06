@@ -87,11 +87,17 @@ interface ListedMember {
   role: 'viewer' | 'editor';
 }
 
-const defaultExpenseCategories: Omit<Category, 'id' | 'iconName'> & { iconName: string }[] = [
+interface DefaultCategoryEntry {
+  name: string;
+  type: 'income' | 'expense';
+  iconName: string;
+}
+
+const defaultExpenseCategories: DefaultCategoryEntry[] = [
   { name: 'Boende', type: 'expense', iconName: 'Home' }, { name: 'Transport', type: 'expense', iconName: 'Car' }, { name: 'Matvaror', type: 'expense', iconName: 'ShoppingCart' }, { name: 'Fritid', type: 'expense', iconName: 'Clapperboard' }, { name: 'El', type: 'expense', iconName: 'Zap' }, { name: 'Internet', type: 'expense', iconName: 'Wifi' }, { name: 'Försäkring', type: 'expense', iconName: 'Shield' }, { name: 'Kläder', type: 'expense', iconName: 'Shirt'}, { name: 'Hälsa & Skönhet', type: 'expense', iconName: 'Heart'}, { name: 'Restaurang & Nöje', type: 'expense', iconName: 'Utensils'}, { name: 'Övrigt', type: 'expense', iconName: 'Tag' },
 ];
 
-const defaultIncomeCategories: Omit<Category, 'id'| 'iconName'> & { iconName: string }[] = [
+const defaultIncomeCategories: DefaultCategoryEntry[] = [
    { name: 'Lön', type: 'income', iconName: 'Briefcase'}, { name: 'Bidrag', type: 'income', iconName: 'HandCoins'}, { name: 'Gåvor', type: 'income', iconName: 'Gift'}, { name: 'Övrig Inkomst', type: 'income', iconName: 'DollarSign'},
 ];
 
