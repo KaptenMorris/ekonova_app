@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo, FormEvent, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { BarChart, PieChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Bar, Pie, Cell } from 'recharts';
+import type { ValueType, NameType, Payload as RechartsPayload } from 'recharts/types/component/DefaultTooltipContent';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
@@ -79,6 +80,14 @@ const defaultChartColors = [
 
 type UserRole = 'owner' | 'editor' | 'viewer' | 'none';
 
+// Type for individual items in expenseDistributionData with the added 'percent' from Pie
+interface PieSegmentOriginalData {
+  name: string;
+  value: number;
+  fill: string;
+  percent?: number; // Recharts Pie adds this
+}
+
 export default function OverviewPage() {
   const { currentUser, subscription, loading: authLoading, mainBoardId } = useAuth();
   const { toast } = useToast();
@@ -96,7 +105,7 @@ export default function OverviewPage() {
 
   const [rawTransactions, setRawTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [expenseDistributionData, setExpenseDistributionData] = useState<any[]>([]);
+  const [expenseDistributionData, setExpenseDistributionData] = useState<PieSegmentOriginalData[]>([]);
 
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [isLoadingSavingsGoals, setIsLoadingSavingsGoals] = useState(false);
@@ -341,7 +350,7 @@ export default function OverviewPage() {
       });
       const chartData = Object.entries(expensesByCategory)
         .filter(([, value]) => value > 0)
-        .map(([name, value], index) => ({ name, value, fill: defaultChartColors[index % defaultChartColors.length] }));
+        .map(([name, value], index) => ({ name, value, fill: defaultChartColors[index % defaultChartColors.length] } as PieSegmentOriginalData));
       setExpenseDistributionData(chartData);
     } else {
       setExpenseDistributionData([]);
@@ -399,15 +408,28 @@ export default function OverviewPage() {
     return isSameMonth(selectedMonthDate, currentMonthStart) || selectedMonthDate > currentMonthStart;
   }, [selectedMonthDate]);
 
-  const tooltipFormatter = (value: number, name: string, item: any) => {
-    const percentage = item.percent; 
-    const formattedValue = value.toLocaleString('sv-SE');
-    const formattedPercentage = (percentage !== undefined && percentage !== null) ? `(${(percentage * 100).toFixed(0)}%)` : '';
+  const tooltipFormatter = (
+    value: ValueType,
+    name: NameType,
+    itemProps: RechartsPayload<ValueType, NameType>,
+    index: number,
+    fullPayload?: Array<RechartsPayload<ValueType, NameType>> // Make fullPayload optional to match some recharts versions/usage
+  ): React.ReactNode => {
+    // itemProps.payload should be PieSegmentOriginalData (our data + 'percent')
+    const currentSegmentOriginalData = itemProps.payload as PieSegmentOriginalData;
+    const percentage = currentSegmentOriginalData?.percent;
+  
+    const formattedValue = typeof value === 'number' ? value.toLocaleString('sv-SE') : String(value);
+    const formattedPercentage = (percentage !== undefined && typeof percentage === 'number') ? `(${(percentage * 100).toFixed(0)}%)` : '';
+    
     return (
       <div className="flex w-full items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: item.color || item.payload.fill }} />
-          <span className="text-muted-foreground">{item.name}</span>
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+            style={{ backgroundColor: itemProps.color || currentSegmentOriginalData?.fill }}
+          />
+          <span className="text-muted-foreground">{String(name)}</span>
         </div>
         <span className="font-semibold">{formattedValue} kr {formattedPercentage}</span>
       </div>
