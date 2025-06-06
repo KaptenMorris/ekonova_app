@@ -20,6 +20,7 @@ import {
   HelpCircle,
   LifeBuoy,
   Bot,
+  Megaphone, // Importera Megafonikonen
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -40,9 +41,9 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-// import WhatsNewDialog from '@/components/shared/whats-new-dialog';
+import WhatsNewDialog from '@/components/shared/whats-new-dialog'; // Importera WhatsNewDialog
 import WelcomeGuideDialog from '@/components/shared/welcome-guide-dialog';
-// import { useAppVersionInfo, AppVersionInfoProvider } from '@/contexts/AppVersionContext';
+import { useAppVersionInfo, AppVersionInfoProvider, type AppVersion } from '@/contexts/AppVersionContext'; // Importera AppVersionInfoProvider och useAppVersionInfo
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -67,17 +68,34 @@ const staticNavItems: NavItem[] = [
 ];
 
 
-const AppLayoutInner: FC<{
+interface AppLayoutInnerProps {
   currentUser: User;
   logOut: () => void;
   pathname: string;
   children: ReactNode;
   hasSeenWelcomeGuide: boolean | null;
   markWelcomeGuideAsSeen: () => Promise<void>;
-}> = ({ currentUser, logOut, pathname, children, hasSeenWelcomeGuide, markWelcomeGuideAsSeen }) => {
+  latestVersionInfo: AppVersion | null;
+  showAutoWhatsNewDialog: boolean;
+  closeAutoWhatsNewDialog: () => void;
+  isLoadingVersionInfo: boolean;
+}
+
+const AppLayoutInner: FC<AppLayoutInnerProps> = ({ 
+  currentUser, 
+  logOut, 
+  pathname, 
+  children, 
+  hasSeenWelcomeGuide, 
+  markWelcomeGuideAsSeen,
+  latestVersionInfo,
+  showAutoWhatsNewDialog,
+  closeAutoWhatsNewDialog,
+  isLoadingVersionInfo 
+}) => {
   const { isMobile, setOpenMobile } = useSidebar();
-  // const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo(); 
   const [displayWelcomeDialog, setDisplayWelcomeDialog] = useState(false);
+  const [showManualWhatsNew, setShowManualWhatsNew] = useState(false);
 
   const userDisplayName = currentUser.displayName || currentUser.email || 'Användare';
   const userEmail = currentUser.email || 'Ingen e-post';
@@ -96,7 +114,6 @@ const AppLayoutInner: FC<{
   }, [pageTitle]);
 
   useEffect(() => {
-    // Show welcome guide if user exists, guide hasn't been seen, and we're not already showing it
     if (currentUser && hasSeenWelcomeGuide === false && !displayWelcomeDialog) {
       setDisplayWelcomeDialog(true);
     }
@@ -150,9 +167,7 @@ const AppLayoutInner: FC<{
             </div>
           </div>
           <Separator className="my-2 bg-sidebar-border" />
-           <div className="flex items-center justify-between mt-2">
-            <ThemeToggle />
-          </div>
+           {/* ThemeToggle borttagen härifrån */}
            <Button
               variant="ghost"
               size="sm"
@@ -173,19 +188,38 @@ const AppLayoutInner: FC<{
                 {pageTitle}
              </h1>
            </div>
+           <div className="flex items-center gap-2">
+             {!isLoadingVersionInfo && latestVersionInfo && (
+               <Button
+                 variant="ghost"
+                 size="icon"
+                 onClick={() => setShowManualWhatsNew(true)}
+                 aria-label="Visa senaste uppdateringar"
+                 title="Senaste Uppdateringar"
+               >
+                 <Megaphone className="h-5 w-5" />
+               </Button>
+             )}
+             <ThemeToggle />
+           </div>
         </header>
         <main className="flex-1 overflow-auto p-4 md:p-6">
           {children}
         </main>
       </SidebarInset>
       
-      {/* {!isLoadingVersionInfo && (
+      {!isLoadingVersionInfo && (
         <WhatsNewDialog
-          isOpen={showWhatsNewDialog}
-          onClose={closeWhatsNewDialog}
+          isOpen={showManualWhatsNew || (showAutoWhatsNewDialog && latestVersionInfo !== null)}
+          onClose={() => {
+            setShowManualWhatsNew(false);
+            if (showAutoWhatsNewDialog) {
+              closeAutoWhatsNewDialog();
+            }
+          }}
           versionInfo={latestVersionInfo}
         />
-      )} */}
+      )}
       
       <WelcomeGuideDialog 
         isOpen={displayWelcomeDialog}
@@ -201,6 +235,8 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, loading, logOut, hasSeenWelcomeGuide, markWelcomeGuideAsSeen } = useAuth(); 
+  const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo();
+
 
   useEffect(() => {
     if (!loading && !currentUser) {
@@ -224,7 +260,6 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   }
 
   return (
-    // <AppVersionInfoProvider>
       <SidebarProvider defaultOpen collapsible="icon">
         <AppLayoutInner
           currentUser={currentUser}
@@ -232,13 +267,24 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
           pathname={pathname}
           hasSeenWelcomeGuide={hasSeenWelcomeGuide}
           markWelcomeGuideAsSeen={markWelcomeGuideAsSeen}
+          latestVersionInfo={latestVersionInfo}
+          showAutoWhatsNewDialog={showWhatsNewDialog}
+          closeAutoWhatsNewDialog={closeWhatsNewDialog}
+          isLoadingVersionInfo={isLoadingVersionInfo}
         >
           {children}
         </AppLayoutInner>
       </SidebarProvider>
-    // </AppVersionInfoProvider>
   );
 };
 
-export default AppLayout;
+// Wrap AppLayout with AppVersionInfoProvider
+const WrappedAppLayout: FC<AppLayoutProps> = ({ children }) => {
+  return (
+    <AppVersionInfoProvider>
+      <AppLayout>{children}</AppLayout>
+    </AppVersionInfoProvider>
+  );
+};
 
+export default WrappedAppLayout;
