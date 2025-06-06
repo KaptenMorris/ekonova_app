@@ -587,7 +587,7 @@ export default function BillsPage() {
       category: billCategory,
       notes: billNotes || '',
       boardId: boardForBill,
-      receiptImage: billReceiptImage,
+      receiptImage: billReceiptImage || undefined,
       isSharedCopy: currentBill?.isSharedCopy || false,
       originalBillId: currentBill?.originalBillId || null,
       originalBoardId: currentBill?.originalBoardId || null,
