@@ -13,7 +13,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   type User,
-  type Auth // Changed from FirebaseAuthType
+  type Auth
 } from '@/lib/firebase';
 import { doc, getDoc, Timestamp, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -237,8 +237,8 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const loading = !hasMounted || !initialAuthCheckDone;
 
 
-  const value = {
-    currentUser,
+  const value: AuthContextType = {
+    currentUser: currentUser === undefined ? null : currentUser, // Ensure undefined becomes null
     loading,
     subscription,
     mainBoardId,
