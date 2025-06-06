@@ -40,9 +40,9 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
-import WhatsNewDialog from '@/components/shared/whats-new-dialog';
+// import WhatsNewDialog from '@/components/shared/whats-new-dialog';
 import WelcomeGuideDialog from '@/components/shared/welcome-guide-dialog';
-import { useAppVersionInfo, AppVersionInfoProvider } from '@/contexts/AppVersionContext';
+// import { useAppVersionInfo, AppVersionInfoProvider } from '@/contexts/AppVersionContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -76,7 +76,7 @@ const AppLayoutInner: FC<{
   markWelcomeGuideAsSeen: () => Promise<void>;
 }> = ({ currentUser, logOut, pathname, children, hasSeenWelcomeGuide, markWelcomeGuideAsSeen }) => {
   const { isMobile, setOpenMobile } = useSidebar();
-  const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo(); 
+  // const { latestVersionInfo, showWhatsNewDialog, closeWhatsNewDialog, isLoadingVersionInfo } = useAppVersionInfo(); 
   const [displayWelcomeDialog, setDisplayWelcomeDialog] = useState(false);
 
   const userDisplayName = currentUser.displayName || currentUser.email || 'Användare';
@@ -179,13 +179,13 @@ const AppLayoutInner: FC<{
         </main>
       </SidebarInset>
       
-      {!isLoadingVersionInfo && (
+      {/* {!isLoadingVersionInfo && (
         <WhatsNewDialog
           isOpen={showWhatsNewDialog}
           onClose={closeWhatsNewDialog}
           versionInfo={latestVersionInfo}
         />
-      )}
+      )} */}
       
       <WelcomeGuideDialog 
         isOpen={displayWelcomeDialog}
@@ -224,7 +224,7 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
   }
 
   return (
-    <AppVersionInfoProvider>
+    // <AppVersionInfoProvider>
       <SidebarProvider defaultOpen collapsible="icon">
         <AppLayoutInner
           currentUser={currentUser}
@@ -236,8 +236,9 @@ const AppLayout: FC<AppLayoutProps> = ({ children }) => {
           {children}
         </AppLayoutInner>
       </SidebarProvider>
-    </AppVersionInfoProvider>
+    // </AppVersionInfoProvider>
   );
 };
 
 export default AppLayout;
+
