@@ -13,7 +13,7 @@ import { getBudgetRecommendations, type BudgetRecommendationsInput, type BudgetR
 import { Alert, AlertDescription as ShadAlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query as firestoreQuery, where, limit, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query as firestoreQuery, where, onSnapshot, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore'; // Added addDoc, serverTimestamp, Timestamp
 import { useToast } from '@/hooks/use-toast';
 import SubscriptionPrompt from '@/components/shared/subscription-prompt';
 
@@ -122,7 +122,6 @@ export default function AiBudgetAdvisorPage() {
       setIncome('');
       setExpenses('');
       setExpenseCategoriesInput('');
-      // setDebt(''); // Keep debt if manually entered previously or set it as part of board data
       if (isFetchingBoardData) setIsFetchingBoardData(false);
       return;
     }
@@ -132,12 +131,10 @@ export default function AiBudgetAdvisorPage() {
     setIncome(''); 
     setExpenses('');
     setExpenseCategoriesInput('');
-    // setDebt(''); // Keep debt if manually entered
 
     const transactionsRef = collection(db, 'boards', selectedBoardId, 'transactions');
     const categoriesRef = collection(db, 'boards', selectedBoardId, 'categories');
 
-    // Using getDocs as this data is for a one-time AI request, not continuous display
     Promise.all([getDocs(transactionsRef), getDocs(categoriesRef)])
       .then(([transactionsSnapshot, categoriesSnapshot]) => {
         const boardTransactions = transactionsSnapshot.docs.map(doc => doc.data() as Omit<Transaction, 'id'>);
@@ -168,7 +165,7 @@ export default function AiBudgetAdvisorPage() {
       })
       .finally(() => setIsFetchingBoardData(false));
 
-  }, [currentUser?.uid, selectedBoardId, toast, isSubscribed, authLoading]); // Removed isFetchingBoardData
+  }, [currentUser?.uid, selectedBoardId, toast, isSubscribed, authLoading]);
 
 
   const parseExpenseCategories = (input: string): Record<string, number> => {
@@ -184,6 +181,41 @@ export default function AiBudgetAdvisorPage() {
       }
     });
     return categories;
+  };
+
+  const saveGeneratedAdvice = async (
+    userId: string,
+    boardId: string,
+    recommendationsText: string,
+    adviceInput: BudgetRecommendationsInput
+  ) => {
+    if (!boardId) {
+      console.warn("Cannot save advice without a selected board ID.");
+      // Optionally inform user that advice wasn't saved due to no board context
+      // toast({ title: "Info", description: "Budgetråd genererat men inte sparat då ingen specifik tavla var vald för kontext."});
+      return;
+    }
+    try {
+      const adviceCollectionRef = collection(db, 'boards', boardId, 'budgetAdvices');
+      await addDoc(adviceCollectionRef, {
+        userId,
+        boardId,
+        recommendations: recommendationsText,
+        inputData: adviceInput,
+        createdAt: serverTimestamp(),
+      });
+      toast({
+        title: "Budgetråd Sparat",
+        description: "Dina personliga rekommendationer har sparats under den aktuella tavlan.",
+      });
+    } catch (saveError) {
+      console.error("Error saving budget advice:", saveError);
+      toast({
+        title: "Fel vid Sparande",
+        description: "Kunde inte spara budgetrådet. Försök generera det igen.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -219,6 +251,12 @@ export default function AiBudgetAdvisorPage() {
     try {
       const result: BudgetRecommendationsOutput = await getBudgetRecommendations(inputData);
       setRecommendations(result.recommendations);
+
+      // Save the advice if successful and user/board context is available
+      if (currentUser?.uid && selectedBoardId && result.recommendations) {
+        await saveGeneratedAdvice(currentUser.uid, selectedBoardId, result.recommendations, inputData);
+      }
+
     } catch (err) {
       console.error(err);
       setError('Ett fel uppstod när råd skulle hämtas. Försök igen senare.');
@@ -262,7 +300,7 @@ export default function AiBudgetAdvisorPage() {
         <CardHeader>
           <CardTitle>AI Budgetrådgivare</CardTitle>
           <CardDescription>
-            Få personliga förslag för att optimera din budget. Välj en tavla för att auto-fylla data, eller fyll i manuellt.
+            Få personliga förslag för att optimera din budget. Välj en tavla för att auto-fylla data, eller fyll i manuellt. Genererade råd sparas.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -341,7 +379,7 @@ export default function AiBudgetAdvisorPage() {
             </div>
           )}
           {!isLoading && !recommendations && !error && (
-            <p className="text-muted-foreground">Dina rekommendationer kommer att visas här.</p>
+            <p className="text-muted-foreground">Dina rekommendationer kommer att visas här. När de visas sparas de också.</p>
           )}
         </CardContent>
       </Card>
