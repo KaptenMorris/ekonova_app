@@ -35,7 +35,7 @@ interface Bill {
   notes?: string;
   paid: boolean;
   boardId: string;
-  receiptImage?: string;
+  receiptImage?: string | null; // MODIFIED: Allow null
   createdAt?: any;
   updatedAt?: any;
   paidByUid?: string | null;
@@ -587,7 +587,7 @@ export default function BillsPage() {
       category: billCategory,
       notes: billNotes || '',
       boardId: boardForBill,
-      receiptImage: billReceiptImage || undefined,
+      receiptImage: billReceiptImage, // MODIFIED: Direct assignment
       isSharedCopy: currentBill?.isSharedCopy || false,
       originalBillId: currentBill?.originalBillId || null,
       originalBoardId: currentBill?.originalBoardId || null,
@@ -614,11 +614,11 @@ export default function BillsPage() {
         billPayload.updatedAt = serverTimestamp();
         delete billPayload.createdByUid;
         delete billPayload.createdByDisplayName;
-        await updateDoc(doc(billsCollectionRef, currentBill.id), billPayload);
+        await updateDoc(doc(billsCollectionRef, currentBill.id), billPayload as DocumentData); // Cast to DocumentData
         toast({ title: "Räkning Uppdaterad" });
       } else {
         billPayload.createdAt = serverTimestamp();
-        await addDoc(billsCollectionRef, billPayload);
+        await addDoc(billsCollectionRef, billPayload as DocumentData); // Cast to DocumentData
         toast({ title: "Räkning Tillagd" });
       }
       setIsBillDialogOpen(false);
