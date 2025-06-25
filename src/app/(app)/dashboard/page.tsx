@@ -862,7 +862,7 @@ export default function DashboardPage() {
       category: newTransactionCategory,
       description: newTransactionDescription,
       type: selectedCategoryDetails.type,
-      linkedBillId: editingTransaction?.linkedBillId || null,
+      linkedBillId: editingTransaction?.linkedBillId ?? null,
     };
 
     try {
@@ -1529,5 +1529,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
