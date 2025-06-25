@@ -35,7 +35,7 @@ interface Bill {
   notes?: string;
   paid: boolean;
   boardId: string;
-  receiptImage?: string | null; // MODIFIED: Allow null
+  receiptImage?: string | null;
   createdAt?: any;
   updatedAt?: any;
   paidByUid?: string | null;
@@ -587,7 +587,7 @@ export default function BillsPage() {
       category: billCategory,
       notes: billNotes || '',
       boardId: boardForBill,
-      receiptImage: billReceiptImage, // MODIFIED: Direct assignment
+      receiptImage: billReceiptImage,
       isSharedCopy: currentBill?.isSharedCopy || false,
       originalBillId: currentBill?.originalBillId || null,
       originalBoardId: currentBill?.originalBoardId || null,
@@ -1132,4 +1132,3 @@ export default function BillsPage() {
     </div>
   );
 }
-

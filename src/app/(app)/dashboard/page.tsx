@@ -858,11 +858,11 @@ export default function DashboardPage() {
     const transactionPayload: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: any, updatedAt?: any } = {
       title: newTransactionTitle,
       amount: amount,
-      date: newTransactionDate, // This comes from the form, pre-filled based on selectedMonthDate or editingTransaction.date
+      date: newTransactionDate,
       category: newTransactionCategory,
       description: newTransactionDescription,
       type: selectedCategoryDetails.type,
-      linkedBillId: editingTransaction ? editingTransaction.linkedBillId : null,
+      linkedBillId: editingTransaction?.linkedBillId || null,
     };
 
     try {
@@ -1529,4 +1529,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
