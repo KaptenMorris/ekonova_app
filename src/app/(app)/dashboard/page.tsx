@@ -1362,7 +1362,12 @@ export default function DashboardPage() {
       )}
 
 
-      <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
+      <Dialog open={isTransactionDialogOpen} onOpenChange={(open) => {
+        setIsTransactionDialogOpen(open);
+        if (!open) {
+          resetTransactionForm();
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingTransaction ? 'Redigera Transaktion' : 'Lägg till Ny Transaktion'}</DialogTitle>
@@ -1529,6 +1534,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
 
