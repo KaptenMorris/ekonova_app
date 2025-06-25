@@ -411,27 +411,35 @@ export default function OverviewPage() {
   const tooltipFormatter = (
     value: ValueType,
     name: NameType,
-    itemProps: RechartsPayload<ValueType, NameType>,
+    item: RechartsPayload<ValueType, NameType>,
     index: number,
-    fullPayload?: Array<RechartsPayload<ValueType, NameType>> // Make fullPayload optional to match some recharts versions/usage
+    fullPayload?: Array<RechartsPayload<ValueType, NameType>>
   ): React.ReactNode => {
-    // itemProps.payload should be PieSegmentOriginalData (our data + 'percent')
-    const currentSegmentOriginalData = itemProps.payload as PieSegmentOriginalData;
-    const percentage = currentSegmentOriginalData?.percent;
+    // The `item.payload` from recharts for a Pie chart contains the original data
+    // plus a `percent` property (a value between 0 and 1).
+    const segmentPayload = item.payload as PieSegmentOriginalData;
+    const percentage = segmentPayload?.percent;
   
-    const formattedValue = typeof value === 'number' ? value.toLocaleString('sv-SE') : String(value);
-    const formattedPercentage = (percentage !== undefined && typeof percentage === 'number') ? `(${(percentage * 100).toFixed(0)}%)` : '';
+    // Format the currency value
+    const formattedValue = typeof value === 'number' 
+      ? value.toLocaleString('sv-SE') 
+      : String(value);
+      
+    // Format the percentage string, e.g., " (25%)"
+    const formattedPercentage = (typeof percentage === 'number' && !isNaN(percentage))
+      ? ` (${(percentage * 100).toFixed(0)}%)`
+      : '';
     
     return (
       <div className="flex w-full items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-            style={{ backgroundColor: itemProps.color || currentSegmentOriginalData?.fill }}
+            style={{ backgroundColor: item.color || segmentPayload?.fill }}
           />
           <span className="text-muted-foreground">{String(name)}</span>
         </div>
-        <span className="font-semibold">{formattedValue} kr {formattedPercentage}</span>
+        <span className="font-semibold">{formattedValue} kr{formattedPercentage}</span>
       </div>
     );
   };
@@ -743,4 +751,5 @@ export default function OverviewPage() {
     </div>
   );
 }
+
 
