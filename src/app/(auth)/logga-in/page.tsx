@@ -36,7 +36,7 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error("Login error details:", err); 
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
-        setError('Felaktig e-postadress eller lösenord. Kontrollera dina uppgifter och försök igen.');
+        setError('Inloggningen misslyckades. Kontrollera att både e-postadress och lösenord är korrekta och försök igen.');
       } else if (err.code === 'auth/too-many-requests') {
         setError('För många inloggningsförsök. Återställ ditt lösenord eller försök igen senare.');
       } else if (err.code === 'auth/user-disabled') {
