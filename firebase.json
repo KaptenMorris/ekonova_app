@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "public",
+    "public": "out",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -8,15 +8,8 @@
     ],
     "rewrites": [
       {
-        "source": "/**",
+        "source": "**",
         "destination": "/index.html"
-      }
-    ],
-    "redirects": [
-      {
-        "source": "/",
-        "destination": "https://ekonova.marius-christensen.se",
-        "type": 301
       }
     ]
   }
